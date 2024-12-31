@@ -131,9 +131,14 @@ function OnAddOnLoaded(_, name)
     end)
     ZO_MainMenuCategoryBarButton1Membership:ClearAnchors()
     ZO_MainMenuCategoryBarButton1Membership:SetAnchor(LEFT, ZO_PlayerProgressChampionPoints, RIGHT, 10, 0, 0)
-
+    table.remove(WORLD_MAP_SCENE.fragments, 19) -- TOP_BAR_FRAGMENT
+    table.remove(WORLD_MAP_SCENE.fragments, 18) -- 
+    table.remove(WORLD_MAP_SCENE.fragments, 17) -- idk why these must be removed but whatever lol
+    WORLD_MAP_SCENE:RefreshFragments()
 
     ZO_Compass:SetAnchor(TOPLEFT, COMPASS_FRAME.control, TOPLEFT, 0, -512) -- hide compass
+
+    ----------- Addon specific stuff -----------
 
     if Raidificator then -- Hide top left raidificator status
         if not origRaidificatorFunction then 
