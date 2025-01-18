@@ -18,6 +18,7 @@ local LATENCY_ICONS = {
 
 local origPithkaFunction
 local origRaidificatorFunction
+local origHideGroupFunction
 
 function OnAddOnLoaded(_, name)
     if name ~= "Ricing" then return end
@@ -110,8 +111,10 @@ function OnAddOnLoaded(_, name)
 
     STUB_SETTING_KEEP_MINIMIZED = true -- Keep chat minimised unless opened by the player
     SecurePostHook(KEYBOARD_CHAT_SYSTEM, "StartTextEntry", function()
-        if not KEYBOARD_CHAT_SYSTEM.isMinimized then 
+        if not KEYBOARD_CHAT_SYSTEM.isMinimized and not IsShiftKeyDown() then 
             KEYBOARD_CHAT_SYSTEM.shouldMinimizeAfterEntry = true
+        else 
+            KEYBOARD_CHAT_SYSTEM.shouldMinimizeAfterEntry = false
         end
     end)
 
@@ -163,6 +166,21 @@ function OnAddOnLoaded(_, name)
                 w = 930 + (PITHKA.SV.state.showExtra and 225 or 0)
                 h = 150 + 25 * #PITHKA.Data.Achievements.DBFilter({TYPE='trial'}) 
                 PITHKA_GUI:SetDimensions(w, h)
+            end
+        end
+    end
+
+    if HideGroupNecro and OSIStore then -- show dps icons when hiding group so i know where people are
+        OPTIONS = ZO_SavedVars:NewAccountWide( "OSIStore", 1, nil, {} )
+        if not origHideGroupFunction then 
+            origHideGroupFunction = HideGroupNecro.hideMembers
+        end
+        HideGroupNecro.hideMembers = function(enable)
+            origHideGroupFunction(enable)
+            if enable then 
+                OPTIONS[3].show = true
+            else 
+                OPTIONS[3].show = false
             end
         end
     end

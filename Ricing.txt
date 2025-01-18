@@ -2,6 +2,6 @@
 ## Author: TheMrPancake
 ## Version: 1.0
 ## APIVersion: 101044
-## OptionalDependsOn: PithkaAchievementTracker Raidificator
+## OptionalDependsOn: PithkaAchievementTracker Raidificator OdySupportIcons HideGroupNecro
 
 Ricing.lua
