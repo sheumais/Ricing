@@ -256,22 +256,22 @@ local function OnAddOnLoaded(_, name)
                 local x_avg = x_total / n
                 local z_avg = z_total / n
             
-                local minDistance = math.huge
-                local closestCorner = nil
+                local minDistance = 0
+                local furthestCorner = nil
                 for i, corner in ipairs(triangleCorners) do -- compare average group member position to maze corners
                     local x_corner, z_corner = corner[1], corner[2]
                     local distance = math.sqrt((x_avg - x_corner)^2 + (z_avg - z_corner)^2)
                     
-                    if distance < minDistance then
+                    if distance > minDistance then
                         minDistance = distance
-                        closestCorner = i
+                        furthestCorner = i
                     end
                 end
-                if closestCorner == 1 then 
+                if furthestCorner == 1 then 
                     d("Poison")
-                elseif closestCorner == 2 then 
+                elseif furthestCorner == 2 then 
                     d("Lightning")
-                elseif closestCorner == 3 then 
+                elseif furthestCorner == 3 then 
                     d("Fire")
                 end
             end

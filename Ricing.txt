@@ -2,6 +2,6 @@
 ## Author: TheMrPancake
 ## Version: 1.0
 ## APIVersion: 101044
-## OptionalDependsOn: PithkaAchievementTracker Raidificator OdySupportIcons HideGroupNecro Breadcrumbs QcellDreadsailReefHelper Qcell_DSRHelper_Scorepush_Patch 
+## OptionalDependsOn: PithkaAchievementTracker Raidificator OdySupportIcons HideGroupNecro Breadcrumbs QcellDreadsailReefHelper Qcell_DSRHelper_Scorepush_Patch SanitysEdgeHelper
 
 Ricing.lua
