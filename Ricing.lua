@@ -6,23 +6,25 @@ ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][I
 ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_TARGET_GLOW_INTENSITY].showValueMax = 2000
 ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_TARGET_GLOW_INTENSITY].maxValue = 20
 
-local CUSTOM_MAX_LATENCY = 9999
-local HIGH_LATENCY = 300
-local MEDIUM_LATENCY = 200
-local LOW_LATENCY = 0
-local LATENCY_ICONS = {
-    [HIGH_LATENCY] = { image = "EsoUI/Art/Campaign/campaignBrowser_lowPop.dds", color = ZO_ERROR_COLOR },
-    [MEDIUM_LATENCY] = { image = "EsoUI/Art/Campaign/campaignBrowser_medPop.dds", color = ZO_SELECTED_TEXT },
-    [LOW_LATENCY] = { image = "EsoUI/Art/Campaign/campaignBrowser_hiPop.dds", color = ZO_SELECTED_TEXT }
-}
-
 local origPithkaFunction
 local origRaidificatorFunction
 local origHideGroupFunction
+local origMatchBrandsFunction
+local origMazeFunction
 
-function OnAddOnLoaded(_, name)
+local function OnAddOnLoaded(_, name)
     if name ~= "Ricing" then return end
     EVENT_MANAGER:UnregisterForEvent("Ricing", EVENT_ADD_ON_LOADED)
+
+    local CUSTOM_MAX_LATENCY = 9999
+    local HIGH_LATENCY = 300
+    local MEDIUM_LATENCY = 200
+    local LOW_LATENCY = 0
+    local LATENCY_ICONS = {
+        [HIGH_LATENCY] = { image = "EsoUI/Art/Campaign/campaignBrowser_lowPop.dds", color = ZO_ERROR_COLOR },
+        [MEDIUM_LATENCY] = { image = "EsoUI/Art/Campaign/campaignBrowser_medPop.dds", color = ZO_SELECTED_TEXT },
+        [LOW_LATENCY] = { image = "EsoUI/Art/Campaign/campaignBrowser_hiPop.dds", color = ZO_SELECTED_TEXT },
+    }
 
     local controlsToHide = {
         ZO_FocusedQuestTrackerPanel,
@@ -181,6 +183,111 @@ function OnAddOnLoaded(_, name)
                 OPTIONS[3].show = true
             else 
                 OPTIONS[3].show = false
+            end
+        end
+    end
+
+    if Breadcrumbs then 
+        if QDRH then -- should also be compatible with scorepush patch
+            if not origMatchBrandsFunction then 
+                origMatchBrandsFunction = QDRH.Lylanar.MatchBrands
+            end
+            QDRH.Lylanar.MatchBrands = function(...)
+                origMatchBrandsFunction(...)
+                local affectedByBrand = false
+                local affectedIndex = 0
+                local myDisplayName = GetUnitDisplayName("player")
+                for i=1,2 do
+                    if QDRH.status.frostbrandTracker[i] == myDisplayName then
+                        affectedByBrand = true
+                        affectedIndex = i
+                    elseif QDRH.status.firebrandTracker[i] == myDisplayName then
+                        affectedByBrand = true
+                        affectedIndex = i
+                    end
+                end
+                -- 1 = far (entrance)
+                -- 2 = close (middle)
+              
+                local line
+                if affectedByBrand then
+                    local x2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][1]
+                    local y2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][2]
+                    local z2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][3]
+                    local _, x1, y1, z1 = GetUnitRawWorldPosition("player")
+                    line = Breadcrumbs.AddLineToPool( x1, y1, z1, x2, y2, z2, {1,1,1})
+                    EVENT_MANAGER:RegisterForUpdate( "RicingQDRHLineUpdate", Breadcrumbs.sV.polling, function() 
+                        Breadcrumbs.DiscardLine(line)
+                        local _, x1, y1, z1 = GetUnitRawWorldPosition("player")
+                        line = Breadcrumbs.AddLineToPool( x1, y1, z1, x2, y2, z2, {1,1,1})
+                    end)
+                    if line then
+                        zo_callLater(function() UnregisterForUpdate("RicingQDRHLineUpdate") Breadcrumbs.DiscardLine(line) end, 5000)
+                    end
+                end
+            end
+        end
+
+        local triangleCorners = {
+            {196136, 37820}, -- Green (1)
+            {203774, 37870}, -- Blue (2)
+            {200000, 44336}, -- Red (3)
+        }
+
+        local function CreateMazeBreadcrumbs()
+            local n = 0
+            local x_total = 0
+            local z_total = 0
+            for i=1, 12 do 
+                local zone, x, _, z = GetUnitRawWorldPosition("group" .. i)
+                local health, maxhp, _ = GetUnitPower("group" .. i, COMBAT_MECHANIC_FLAGS_HEALTH)
+                d(GetUnitName("group" .. i) .. ": " .. zone .. ", " .. x .. ", " .. z .. ", " .. health .. " / " .. maxhp) 
+                if zone == 1427 and health > 0 then -- is group member in the trial and alive?
+                    n = n + 1                       -- (assuming all members have been ported into the ansuul fight,
+                    x_total = x_total + x           -- no PTE shenanigans here please rastananana)
+                    z_total = z_total + z
+                    d(n)
+                    d(x_total)
+                    d(z_total)
+                end
+            end
+
+            if n > 0 then -- just in case
+                local x_avg = x_total / n
+                local z_avg = z_total / n
+            
+                local minDistance = math.huge
+                local closestCorner = nil
+                for i, corner in ipairs(triangleCorners) do -- compare average group member position to maze corners
+                    local x_corner, z_corner = corner[1], corner[2]
+                    local distance = math.sqrt((x_avg - x_corner)^2 + (z_avg - z_corner)^2)
+                    
+                    if distance < minDistance then
+                        minDistance = distance
+                        closestCorner = i
+                    end
+                end
+                if closestCorner == 1 then 
+                    d("Poison")
+                elseif closestCorner == 2 then 
+                    d("Lightning")
+                elseif closestCorner == 3 then 
+                    d("Fire")
+                end
+            end
+            -- lines can be safely removed after ~20 seconds. Everyone will be through the penultimate gate by then (or dead on the floor somewhere)
+            zo_callLater(function() d("Removing lines...") Breadcrumbs.RefreshLines() end, 20000)
+        end
+
+        if SEH then -- sanity's edge helper
+            if not origMazeFunction then 
+                origMazeFunction = SEH.Ansuul.TheRitual
+            end
+            SEH.Ansuul.TheRitual = function(result, ...)
+                origMazeFunction(result, ...)
+                if result == ACTION_RESULT_EFFECT_GAINED_DURATION then -- starts at 45 seconds, maze spawns at ~35.7 seconds
+                    zo_callLater(function() CreateMazeBreadcrumbs() end, 10000)
+                end
             end
         end
     end
