@@ -188,45 +188,45 @@ local function OnAddOnLoaded(_, name)
     end
 
     if Breadcrumbs then 
-        if QDRH then -- should also be compatible with scorepush patch
-            if not origMatchBrandsFunction then 
-                origMatchBrandsFunction = QDRH.Lylanar.MatchBrands
-            end
-            QDRH.Lylanar.MatchBrands = function(...)
-                origMatchBrandsFunction(...)
-                local affectedByBrand = false
-                local affectedIndex = 0
-                local myDisplayName = GetUnitDisplayName("player")
-                for i=1,2 do
-                    if QDRH.status.frostbrandTracker[i] == myDisplayName then
-                        affectedByBrand = true
-                        affectedIndex = i
-                    elseif QDRH.status.firebrandTracker[i] == myDisplayName then
-                        affectedByBrand = true
-                        affectedIndex = i
-                    end
-                end
-                -- 1 = far (entrance)
-                -- 2 = close (middle)
+        -- if QDRH then -- should also be compatible with scorepush patch
+        --     if not origMatchBrandsFunction then 
+        --         origMatchBrandsFunction = QDRH.Lylanar.MatchBrands
+        --     end
+        --     QDRH.Lylanar.MatchBrands = function(...)
+        --         origMatchBrandsFunction(...)
+        --         local affectedByBrand = false
+        --         local affectedIndex = 0
+        --         local myDisplayName = GetUnitDisplayName("player")
+        --         for i=1,2 do
+        --             if QDRH.status.frostbrandTracker[i] == myDisplayName then
+        --                 affectedByBrand = true
+        --                 affectedIndex = i
+        --             elseif QDRH.status.firebrandTracker[i] == myDisplayName then
+        --                 affectedByBrand = true
+        --                 affectedIndex = i
+        --             end
+        --         end
+        --         -- 1 = far (entrance)
+        --         -- 2 = close (middle)
               
-                local line
-                if affectedByBrand then
-                    local x2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][1]
-                    local y2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][2]
-                    local z2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][3]
-                    local _, x1, y1, z1 = GetUnitRawWorldPosition("player")
-                    line = Breadcrumbs.AddLineToPool( x1, y1, z1, x2, y2, z2, {1,1,1})
-                    EVENT_MANAGER:RegisterForUpdate( "RicingQDRHLineUpdate", Breadcrumbs.sV.polling, function() 
-                        Breadcrumbs.DiscardLine(line)
-                        local _, x1, y1, z1 = GetUnitRawWorldPosition("player")
-                        line = Breadcrumbs.AddLineToPool( x1, y1, z1, x2, y2, z2, {1,1,1})
-                    end)
-                    if line then
-                        zo_callLater(function() UnregisterForUpdate("RicingQDRHLineUpdate") Breadcrumbs.DiscardLine(line) end, 5000)
-                    end
-                end
-            end
-        end
+        --         local line
+        --         if affectedByBrand then
+        --             local x2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][1]
+        --             local y2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][2]
+        --             local z2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][3]
+        --             local _, x1, y1, z1 = GetUnitRawWorldPosition("player")
+        --             line = Breadcrumbs.AddLineToPool( x1, y1, z1, x2, y2, z2, {1,1,1})
+        --             EVENT_MANAGER:RegisterForUpdate( "RicingQDRHLineUpdate", Breadcrumbs.sV.polling, function() 
+        --                 Breadcrumbs.DiscardLine(line)
+        --                 local _, x1, y1, z1 = GetUnitRawWorldPosition("player")
+        --                 line = Breadcrumbs.AddLineToPool( x1, y1, z1, x2, y2, z2, {1,1,1})
+        --             end)
+        --             if line then
+        --                 zo_callLater(function() UnregisterForUpdate("RicingQDRHLineUpdate") Breadcrumbs.DiscardLine(line) end, 5000)
+        --             end
+        --         end
+        --     end
+        -- end
 
         local triangleCorners = {
             {196136, 37820}, -- Green (1)
@@ -310,6 +310,7 @@ local function OnAddOnLoaded(_, name)
     end
 
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
+    TogglePositionVisiblity()
 end
 
 EVENT_MANAGER:RegisterForEvent("Ricing", EVENT_ADD_ON_LOADED, OnAddOnLoaded)
