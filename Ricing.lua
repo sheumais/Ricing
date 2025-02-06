@@ -241,14 +241,10 @@ local function OnAddOnLoaded(_, name)
             for i=1, 12 do 
                 local zone, x, _, z = GetUnitRawWorldPosition("group" .. i)
                 local health, maxhp, _ = GetUnitPower("group" .. i, COMBAT_MECHANIC_FLAGS_HEALTH)
-                d(GetUnitName("group" .. i) .. ": " .. zone .. ", " .. x .. ", " .. z .. ", " .. health .. " / " .. maxhp) 
                 if zone == 1427 and health > 0 then -- is group member in the trial and alive?
-                    n = n + 1                       -- (assuming all members have been ported into the ansuul fight,
-                    x_total = x_total + x           -- no PTE shenanigans here please rastananana)
-                    z_total = z_total + z
-                    d(n)
-                    d(x_total)
-                    d(z_total)
+                    n = n + 1                       -- assuming all members have been ported into the ansuul fight,
+                    x_total = x_total + x           -- (no PTE shenanigans here please rastananana)
+                    z_total = z_total + z           -- also assuming no people are in portal still. could mess stuff up
                 end
             end
 
@@ -268,15 +264,15 @@ local function OnAddOnLoaded(_, name)
                     end
                 end
                 if furthestCorner == 1 then 
-                    d("Poison")
+                    -- d("Poison")
                 elseif furthestCorner == 2 then 
-                    d("Lightning")
+                    -- d("Lightning")
                 elseif furthestCorner == 3 then 
-                    d("Fire")
+                    -- d("Fire")
                 end
             end
             -- lines can be safely removed after ~20 seconds. Everyone will be through the penultimate gate by then (or dead on the floor somewhere)
-            zo_callLater(function() d("Removing lines...") Breadcrumbs.RefreshLines() end, 20000)
+            zo_callLater(function() Breadcrumbs.RefreshLines() end, 20000)
         end
 
         if SEH then -- sanity's edge helper
@@ -291,6 +287,29 @@ local function OnAddOnLoaded(_, name)
             end
         end
     end
+
+    local x_pos = Ricing_Top_Level_Control_X
+    local z_pos = Ricing_Top_Level_Control_Z
+    local function UpdatePosition()
+        local _, x, _, z = GetUnitRawWorldPosition("player")
+        x_pos:SetText("X: " .. x)
+        z_pos:SetText("Z: " .. z)
+    end
+
+    local hidden = true
+    local function TogglePositionVisiblity()
+        if hidden then
+            hidden = false
+            Ricing_Top_Level_Control:SetHidden(false)
+            EVENT_MANAGER:RegisterForUpdate("RicingPositionUpdate", 20, UpdatePosition)
+        else
+            hidden = true
+            Ricing_Top_Level_Control:SetHidden(true)
+            EVENT_MANAGER:UnregisterForUpdate("RicingPositionUpdate")
+        end
+    end
+
+    SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
 end
 
 EVENT_MANAGER:RegisterForEvent("Ricing", EVENT_ADD_ON_LOADED, OnAddOnLoaded)

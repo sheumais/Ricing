@@ -5,3 +5,4 @@
 ## OptionalDependsOn: PithkaAchievementTracker Raidificator OdySupportIcons HideGroupNecro Breadcrumbs QcellDreadsailReefHelper Qcell_DSRHelper_Scorepush_Patch SanitysEdgeHelper
 
 Ricing.lua
+Ricing.xml
