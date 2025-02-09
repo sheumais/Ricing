@@ -27,7 +27,6 @@ local function OnAddOnLoaded(_, name)
     }
 
     local controlsToHide = {
-        ZO_FocusedQuestTrackerPanel,
         ZO_CompassFrameLeft,
         ZO_CompassFrameCenter,
         ZO_CompassFrameRight,
@@ -142,6 +141,21 @@ local function OnAddOnLoaded(_, name)
     WORLD_MAP_SCENE:RefreshFragments()
 
     ZO_Compass:SetAnchor(TOPLEFT, COMPASS_FRAME.control, TOPLEFT, 0, -512) -- hide compass
+
+
+    local function ApplySynergySettings()
+        if not SYNERGY then return end
+    
+        if SYNERGY.action then
+            SYNERGY.action:SetHidden(true)
+        end
+
+        SYNERGY.container:ClearAnchors()
+        SYNERGY.container:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 900, 800)
+    end
+    SecurePostHook(SYNERGY, "OnSynergyAbilityChanged", function(self, ...)
+        ApplySynergySettings()
+    end)
 
     ----------- Addon specific stuff -----------
 
@@ -310,7 +324,6 @@ local function OnAddOnLoaded(_, name)
     end
 
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
-    TogglePositionVisiblity()
 end
 
 EVENT_MANAGER:RegisterForEvent("Ricing", EVENT_ADD_ON_LOADED, OnAddOnLoaded)
