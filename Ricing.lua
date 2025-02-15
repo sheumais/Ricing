@@ -277,16 +277,79 @@ local function OnAddOnLoaded(_, name)
                         furthestCorner = i
                     end
                 end
+                local point_list = {{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},}
+                local maze_line_colour = {1, 1, 1}
                 if furthestCorner == 1 then 
+                    maze_line_colour = {0, 1, 0}
                     -- d("Poison")
+                    point_list = {
+                        {200983, 40389},
+                        {199312, 41474},
+                        {199071, 41220},
+                        {200361, 38907},
+                        {200216, 38419},
+                        {199684, 38295},
+                        {199537, 38466},
+                        {198577, 40089},
+                        {198291, 40107},
+                        {198099, 39383},
+                        {198433, 37959},
+                        {197609, 39035},
+                        {197269, 38912},
+                        {197118, 38645},
+                    }
                 elseif furthestCorner == 2 then 
+                    maze_line_colour = {0, 0, 1}
                     -- d("Lightning")
+                    point_list = {
+                        {199164, 40760},
+                        {199459, 40191},
+                        {198815, 38867},
+                        {199256, 38605},
+                        {200618, 40845},
+                        {201647, 40665},
+                        {201213, 39943},
+                        -- wait!
+                        {201017, 39587},
+                        {201313, 38685},
+                        {202056, 39322},
+                        {202580, 39778},
+                        {202649, 39541},
+                        {202195, 38519},
+                        {202335, 38271},
+                    }
                 elseif furthestCorner == 3 then 
+                    maze_line_colour = {1, 0, 0}
                     -- d("Fire")
+                    point_list = {
+                        {199964, 38901},
+                        {201689, 39972},
+                        {201605, 40121},
+                        {200177, 40150},
+                        {198833, 40626},
+                        {198752, 40961},
+                        {198821, 41106},
+                        {200678, 41111},
+                        {200602, 41853},
+                        {199263, 41790},
+                        {199207, 42250},
+                        {200278, 42628},
+                        {200486, 42841},
+                        {200042, 43160},
+                    }
+                end
+                local line_list = {}
+                if point_list then 
+                    for i=1, #point_list do 
+                        if point_list[i+1] == nil then break end
+                        local x1, z1 = point_list[i][1], point_list[i][2]
+                        local x2, z2 = point_list[i+1][1], point_list[i+1][2]
+                        local line = Breadcrumbs.CreateLinePrimitive(x1, 30200, z1, x2, 30200, z2, maze_line_colour)
+                        table.insert(line_list, line)
+                    end
+                    Breadcrumbs.CreateTemporaryLines(line_list, 19000)
                 end
             end
-            -- lines can be safely removed after ~20 seconds. Everyone will be through the penultimate gate by then (or dead on the floor somewhere)
-            zo_callLater(function() Breadcrumbs.RefreshLines() end, 20000)
         end
 
         if SEH then -- sanity's edge helper
@@ -296,7 +359,7 @@ local function OnAddOnLoaded(_, name)
             SEH.Ansuul.TheRitual = function(result, ...)
                 origMazeFunction(result, ...)
                 if result == ACTION_RESULT_EFFECT_GAINED_DURATION then -- starts at 45 seconds, maze spawns at ~35.7 seconds
-                    zo_callLater(function() CreateMazeBreadcrumbs() end, 10000)
+                    zo_callLater(function() CreateMazeBreadcrumbs() end, 9000)
                 end
             end
         end
