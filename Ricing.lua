@@ -7,6 +7,7 @@ ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][I
 ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_TARGET_GLOW_INTENSITY].maxValue = 20
 
 local origPithkaFunction
+local origPithkaFunction2
 local origRaidificatorFunction
 local origHideGroupFunction
 local origMatchBrandsFunction
@@ -175,6 +176,9 @@ local function OnAddOnLoaded(_, name)
         if not origPithkaFunction then 
             origPithkaFunction = PITHKA.UI.Layout.updateScreenSize
         end
+        if not origPithkaFunction2 then -- remove tooltip for non-existent achievement links
+            origPithkaFunction2 = PITHKA.UI.Icons.achievement
+        end
         PITHKA.UI.Layout.updateScreenSize = function(...)
             local w, h
             origPithkaFunction(...)
@@ -182,6 +186,13 @@ local function OnAddOnLoaded(_, name)
                 w = 930 + (PITHKA.SV.state.showExtra and 225 or 0)
                 h = 150 + 25 * #PITHKA.Data.Achievements.DBFilter({TYPE='trial'}) 
                 PITHKA_GUI:SetDimensions(w, h)
+            end
+        end
+        PITHKA.UI.Icons.achievement = function(data)
+            if data.a==nil then 
+                data.t  = PITHKA.UI.Constants.texture.X
+                data.c  = PITHKA.UI.Constants.rgbGray
+                return PITHKA.UI.Icons.basic(data)
             end
         end
     end
@@ -202,46 +213,6 @@ local function OnAddOnLoaded(_, name)
     end
 
     if Breadcrumbs then 
-        -- if QDRH then -- should also be compatible with scorepush patch
-        --     if not origMatchBrandsFunction then 
-        --         origMatchBrandsFunction = QDRH.Lylanar.MatchBrands
-        --     end
-        --     QDRH.Lylanar.MatchBrands = function(...)
-        --         origMatchBrandsFunction(...)
-        --         local affectedByBrand = false
-        --         local affectedIndex = 0
-        --         local myDisplayName = GetUnitDisplayName("player")
-        --         for i=1,2 do
-        --             if QDRH.status.frostbrandTracker[i] == myDisplayName then
-        --                 affectedByBrand = true
-        --                 affectedIndex = i
-        --             elseif QDRH.status.firebrandTracker[i] == myDisplayName then
-        --                 affectedByBrand = true
-        --                 affectedIndex = i
-        --             end
-        --         end
-        --         -- 1 = far (entrance)
-        --         -- 2 = close (middle)
-              
-        --         local line
-        --         if affectedByBrand then
-        --             local x2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][1]
-        --             local y2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][2]
-        --             local z2 = QDRH.data.lylanar_brand_meeting_point[affectedIndex][3]
-        --             local _, x1, y1, z1 = GetUnitRawWorldPosition("player")
-        --             line = Breadcrumbs.AddLineToPool( x1, y1, z1, x2, y2, z2, {1,1,1})
-        --             EVENT_MANAGER:RegisterForUpdate( "RicingQDRHLineUpdate", Breadcrumbs.sV.polling, function() 
-        --                 Breadcrumbs.DiscardLine(line)
-        --                 local _, x1, y1, z1 = GetUnitRawWorldPosition("player")
-        --                 line = Breadcrumbs.AddLineToPool( x1, y1, z1, x2, y2, z2, {1,1,1})
-        --             end)
-        --             if line then
-        --                 zo_callLater(function() UnregisterForUpdate("RicingQDRHLineUpdate") Breadcrumbs.DiscardLine(line) end, 5000)
-        --             end
-        --         end
-        --     end
-        -- end
-
         local triangleCorners = {
             {196136, 37820}, -- Green (1)
             {203774, 37870}, -- Blue (2)
@@ -365,6 +336,13 @@ local function OnAddOnLoaded(_, name)
         end
     end
 
+    if CombatAlertsData then -- tell movement direction on rockgrove portal eye because im braindead asf
+        CombatAlertsData.rg.eye = {
+			[153517] = "Clockwise (LEFT)  " .. zo_iconFormatInheritColor("CombatAlerts/art/arrow-cw.dds", 96, 96),
+			[153518] = "Counter-Clockwise (RIGHT)  " .. zo_iconFormatInheritColor("CombatAlerts/art/arrow-ccw.dds", 96, 96),
+		}
+    end
+
     local x_pos = Ricing_Top_Level_Control_X
     local z_pos = Ricing_Top_Level_Control_Z
     local function UpdatePosition()
@@ -387,6 +365,7 @@ local function OnAddOnLoaded(_, name)
     end
 
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
+    SLASH_COMMANDS["/grouporder"] = function() for i=1,GetGroupSize() do d(i .. " " .. GetUnitDisplayName("group"..i)) end end
 end
 
 EVENT_MANAGER:RegisterForEvent("Ricing", EVENT_ADD_ON_LOADED, OnAddOnLoaded)
