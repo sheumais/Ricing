@@ -351,21 +351,79 @@ local function OnAddOnLoaded(_, name)
         z_pos:SetText("Z: " .. z)
     end
 
+    local function PlayTimerSound()
+        PlaySound("Outfitting_WeaponAdd_Rune")
+        EVENT_MANAGER:RegisterForUpdate("RicingNoise", 150, function()
+            PlaySound("Outfitting_WeaponAdd_Rune")
+        end)
+        zo_callLater(function()
+            EVENT_MANAGER:UnregisterForUpdate("RicingNoise")
+        end, 1350)
+    end
+
+    local timer_control = Ricing_Top_Level_Control_Timer
+    local timestamp = 0
+    local function UpdateTimer()
+        local current_timestamp = GetTimeStamp()
+        local difference = timestamp - current_timestamp
+        if current_timestamp < timestamp + 1 then
+            local timer = ZO_FormatTime(difference, TIME_FORMAT_STYLE_COLONS, TIME_FORMAT_PRECISION_SECONDS, TIME_FORMAT_DIRECTION_DESCENDING)
+            timer_control:SetText(timer)
+            timer_control:SetHidden(false)
+        else 
+            EVENT_MANAGER:UnregisterForUpdate("RicingTimerUpdate")
+            timestamp = 0
+            timer_control:SetHidden(true)
+            PlayTimerSound()
+        end
+
+        if difference < 15 then
+            if difference % 2 == 0 then 
+                timer_control:SetColor(1,0,0,1)
+            else 
+                timer_control:SetColor(1,1,1,1)
+            end
+        end
+    end
+
+    local function SetupTimestamp(minutes)
+        EVENT_MANAGER:UnregisterForUpdate("RicingTimerUpdate")
+        if minutes ~= "" then 
+            timestamp = GetTimeStamp() + 60 * minutes
+            EVENT_MANAGER:RegisterForUpdate("RicingTimerUpdate", 1000, UpdateTimer)
+            UpdateTimer()
+        else end
+    end
+
     local hidden = true
     local function TogglePositionVisiblity()
         if hidden then
             hidden = false
-            Ricing_Top_Level_Control:SetHidden(false)
+            x_pos:SetHidden(false)
+            z_pos:SetHidden(false)
             EVENT_MANAGER:RegisterForUpdate("RicingPositionUpdate", 20, UpdatePosition)
         else
             hidden = true
-            Ricing_Top_Level_Control:SetHidden(true)
+            x_pos:SetHidden(true)
+            z_pos:SetHidden(true)
             EVENT_MANAGER:UnregisterForUpdate("RicingPositionUpdate")
         end
     end
 
+    local function PrintGroupOrder()
+        for i=1,GetGroupSize() do 
+            d(i .. " " .. GetUnitDisplayName("group"..i)) 
+        end
+    end
+
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
-    SLASH_COMMANDS["/grouporder"] = function() for i=1,GetGroupSize() do d(i .. " " .. GetUnitDisplayName("group"..i)) end end
+    SLASH_COMMANDS["/grouporder"] = PrintGroupOrder
+    SLASH_COMMANDS["/timer"] = SetupTimestamp
+
+    timer_control:SetHidden(true)
+    timer_control:SetScale(1.5)
+    x_pos:SetHidden(true)
+    z_pos:SetHidden(true)
 end
 
 EVENT_MANAGER:RegisterForEvent("Ricing", EVENT_ADD_ON_LOADED, OnAddOnLoaded)
