@@ -389,8 +389,9 @@ local function OnAddOnLoaded(_, name)
     local function SetupTimestamp(minutes)
         EVENT_MANAGER:UnregisterForUpdate("RicingTimerUpdate")
         if minutes ~= "" then 
+            timer_control:SetColor(1,1,1,1)
             timestamp = GetTimeStamp() + 60 * minutes
-            EVENT_MANAGER:RegisterForUpdate("RicingTimerUpdate", 1000, UpdateTimer)
+            EVENT_MANAGER:RegisterForUpdate("RicingTimerUpdate", 100, UpdateTimer)
             UpdateTimer()
         else end
     end
@@ -416,9 +417,15 @@ local function OnAddOnLoaded(_, name)
         end
     end
 
+    local function TeleportToPrimary()
+        local primary_house_id = GetHousingPrimaryHouse()
+        RequestJumpToHouse(primary_house_id, false)
+    end
+
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
     SLASH_COMMANDS["/grouporder"] = PrintGroupOrder
     SLASH_COMMANDS["/timer"] = SetupTimestamp
+    SLASH_COMMANDS["/home"] = TeleportToPrimary
 
     timer_control:SetHidden(true)
     timer_control:SetScale(1.5)
