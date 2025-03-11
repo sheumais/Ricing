@@ -336,12 +336,13 @@ local function OnAddOnLoaded(_, name)
         end
     end
 
-    if CombatAlertsData then -- tell movement direction on rockgrove portal eye because im braindead asf
-        CombatAlertsData.rg.eye = {
-			[153517] = "Clockwise (LEFT)  " .. zo_iconFormatInheritColor("CombatAlerts/art/arrow-cw.dds", 96, 96),
-			[153518] = "Counter-Clockwise (RIGHT)  " .. zo_iconFormatInheritColor("CombatAlerts/art/arrow-ccw.dds", 96, 96),
-		}
-    end
+    -- if CombatAlertsData then -- tell movement direction on rockgrove portal eye because im braindead asf
+    --     CombatAlertsData.rg.eye = {
+	-- 		[153517] = "Clockwise (LEFT)  " .. zo_iconFormatInheritColor("CombatAlerts/art/arrow-cw.dds", 96, 96),
+	-- 		[153518] = "Counter-Clockwise (RIGHT)  " .. zo_iconFormatInheritColor("CombatAlerts/art/arrow-ccw.dds", 96, 96),
+	-- 	}
+    -- end
+    -- code broke this in latest update, i will try fix at some point.
 
     local x_pos = Ricing_Top_Level_Control_X
     local z_pos = Ricing_Top_Level_Control_Z
@@ -422,10 +423,23 @@ local function OnAddOnLoaded(_, name)
         RequestJumpToHouse(primary_house_id, false)
     end
 
+    local function PrintGlobalTime()
+        local hours, minutes, seconds = GetGlobalTimeOfDay()
+        local timestamp = hours * 3600 + minutes * 60 + seconds
+        local time = ZO_FormatTime(timestamp, TIME_FORMAT_STYLE_CLOCK_TIME, TIME_FORMAT_PRECISION_SECONDS, TIME_FORMAT_DIRECTION_DESCENDING)
+        d("Current time: " .. time)
+    end
+
+    local function PrintLatency()
+        StartChatInput("My current latency is: " .. GetLatency() .. "ms")
+    end
+
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
     SLASH_COMMANDS["/grouporder"] = PrintGroupOrder
     SLASH_COMMANDS["/timer"] = SetupTimestamp
     SLASH_COMMANDS["/home"] = TeleportToPrimary
+    SLASH_COMMANDS["/time"] = PrintGlobalTime
+    SLASH_COMMANDS["/printlatency"] = PrintLatency
 
     timer_control:SetHidden(true)
     timer_control:SetScale(1.5)
