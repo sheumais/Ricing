@@ -199,6 +199,11 @@ local function OnAddOnLoaded(_, name)
 
     if HideGroupNecro and OSIStore then -- show dps icons when hiding group so i know where people are
         OPTIONS = ZO_SavedVars:NewAccountWide( "OSIStore", 1, nil, {} )
+        OPTIONS[3].icon = "esoui/art/icons/mapkey/mapkey_groupmember.dds"
+        OPTIONS[3].size = 48
+        OPTIONS[3].usesize = true
+        OPTIONS[1].icon = "esoui/art/icons/mapkey/mapkey_bg_relic_stormlords.dds"
+        OPTIONS.alpha = 0.6
         if not origHideGroupFunction then 
             origHideGroupFunction = HideGroupNecro.hideMembers
         end
@@ -210,6 +215,7 @@ local function OnAddOnLoaded(_, name)
                 OPTIONS[3].show = false
             end
         end
+        HideGroupNecro.hideMembers(false)
     end
 
     if Breadcrumbs then 
@@ -343,6 +349,10 @@ local function OnAddOnLoaded(_, name)
 	-- 	}
     -- end
     -- code broke this in latest update, i will try fix at some point.
+
+    if CombatAlerts then 
+        CombatAlerts.vars.dsrDelugeBlame = true
+    end
 
     local x_pos = Ricing_Top_Level_Control_X
     local z_pos = Ricing_Top_Level_Control_Z
