@@ -12,10 +12,12 @@ local origRaidificatorFunction
 local origHideGroupFunction
 local origMatchBrandsFunction
 local origMazeFunction
+local savedVariables
 
 local function OnAddOnLoaded(_, name)
     if name ~= "Ricing" then return end
     EVENT_MANAGER:UnregisterForEvent("Ricing", EVENT_ADD_ON_LOADED)
+    savedVariables = ZO_SavedVars:NewAccountWide("RicingSavedVariables", 1, nil, {})
 
     local CUSTOM_MAX_LATENCY = 9999
     local HIGH_LATENCY = 300
@@ -65,6 +67,7 @@ local function OnAddOnLoaded(_, name)
         ZO_MainMenuCategoryBarButton1Image,
         ZO_TopBarBackground,
         ZO_BottomBarBackground,
+        ZO_TopBar,
         ZO_KeybindStripMungeBackgroundTexture,
     }
 
@@ -215,7 +218,6 @@ local function OnAddOnLoaded(_, name)
                 OPTIONS[3].show = false
             end
         end
-        HideGroupNecro.hideMembers(false)
     end
 
     if Breadcrumbs then 
@@ -354,6 +356,51 @@ local function OnAddOnLoaded(_, name)
         CombatAlerts.vars.dsrDelugeBlame = true
     end
 
+    local function handleRaidScoreChange(e, reason, amount, total)
+        local reasonStrings = {
+            [RAID_POINT_REASON_BONUS_ACTIVITY_HIGH] = "Bonus Activity High",
+            [RAID_POINT_REASON_BONUS_ACTIVITY_LOW] = "Bonus Activity Low",
+            [RAID_POINT_REASON_BONUS_ACTIVITY_MEDIUM] = "Bonus Activity Medium",
+            [RAID_POINT_REASON_BONUS_POINT_ONE] = "Bonus Point One",
+            [RAID_POINT_REASON_BONUS_POINT_TWO] = "Bonus Point Two",
+            [RAID_POINT_REASON_BONUS_POINT_THREE] = "Bonus Point Three",
+            [RAID_POINT_REASON_KILL_BANNERMEN] = "Kill Bannermen",
+            [RAID_POINT_REASON_KILL_BOSS] = "Kill Boss",
+            [RAID_POINT_REASON_KILL_CHAMPION] = "Kill Champion",
+            [RAID_POINT_REASON_KILL_MINIBOSS] = "Kill Miniboss",
+            [RAID_POINT_REASON_KILL_NORMAL_MONSTER] = "Kill Normal Monster",
+            [RAID_POINT_REASON_KILL_NOXP_MONSTER] = "Kill NoXP Monster",
+            [RAID_POINT_REASON_LIFE_REMAINING] = "Life Remaining",
+            [RAID_POINT_REASON_SOLO_ARENA_COMPLETE] = "Solo Arena Complete",
+            [RAID_POINT_REASON_SOLO_ARENA_PICKUP_FOUR] = "Solo Arena Pickup Four",
+            [RAID_POINT_REASON_SOLO_ARENA_PICKUP_ONE] = "Solo Arena Pickup One",
+            [RAID_POINT_REASON_SOLO_ARENA_PICKUP_THREE] = "Solo Arena Pickup Three",
+            [RAID_POINT_REASON_SOLO_ARENA_PICKUP_TWO] = "Solo Arena Pickup Two",
+        }
+        local reasonString = reasonStrings[reason] or "Unknown Reason"
+        d("Reason: " .. reasonString .. " | Increase: " .. amount .. " Total: " .. total)
+        local timestamp = GetTimeStamp()
+        if not savedVariables.dataExport then
+            savedVariables.dataExport = {}
+        end
+        table.insert(savedVariables.dataExport, {
+            reason = reasonString,
+            amount = amount,
+            total = total,
+            timestamp = timestamp
+        })
+    end
+
+    local function handleRaidStart(e, name, weekly)
+        if not savedVariables.dataExport then
+            savedVariables.dataExport = {}
+        end
+        table.insert(savedVariables.dataExport, {
+            name = name,
+            timestamp = timestamp
+        })
+    end
+
     local x_pos = Ricing_Top_Level_Control_X
     local z_pos = Ricing_Top_Level_Control_Z
     local function UpdatePosition()
@@ -444,12 +491,26 @@ local function OnAddOnLoaded(_, name)
         StartChatInput("My current latency is: " .. GetLatency() .. "ms")
     end
 
+    local raidEventsToggled = false
+    local function toggleRaidEvents()
+        if raidEventsToggled then 
+            EVENT_MANAGER:UnregisterForEvent("RicingTrialStart", EVENT_RAID_TRIAL_STARTED)
+            EVENT_MANAGER:UnregisterForEvent("RicingScoreUpdate", EVENT_RAID_TRIAL_SCORE_UPDATE)
+            raidEventsToggled = false
+        else
+            EVENT_MANAGER:RegisterForEvent("RicingTrialStart", EVENT_RAID_TRIAL_STARTED, handleRaidStart)
+            EVENT_MANAGER:RegisterForEvent("RicingScoreUpdate", EVENT_RAID_TRIAL_SCORE_UPDATE, handleRaidScoreChange)
+            raidEventsToggled = true
+        end
+    end
+
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
     SLASH_COMMANDS["/grouporder"] = PrintGroupOrder
     SLASH_COMMANDS["/timer"] = SetupTimestamp
     SLASH_COMMANDS["/home"] = TeleportToPrimary
     SLASH_COMMANDS["/time"] = PrintGlobalTime
-    SLASH_COMMANDS["/printlatency"] = PrintLatency
+    SLASH_COMMANDS["/latencyshare"] = PrintLatency
+    SLASH_COMMANDS["/lograiddata"] = toggleRaidEvents
 
     timer_control:SetHidden(true)
     timer_control:SetScale(1.5)
