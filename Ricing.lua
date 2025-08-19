@@ -6,8 +6,6 @@ ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][I
 ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_TARGET_GLOW_INTENSITY].showValueMax = 2000
 ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_TARGET_GLOW_INTENSITY].maxValue = 20
 
-local origPithkaFunction
-local origPithkaFunction2
 local origRaidificatorFunction
 local origHideGroupFunction
 local origMatchBrandsFunction
@@ -73,6 +71,7 @@ local function OnAddOnLoaded(_, name)
 
     local controlsToDisappear = {
         ZO_KeybindStripMungeBackgroundTexture,
+        ZO_PerformanceMetersBg,
     }
 
     for _, control in ipairs(controlsToHide) do -- Hide various default UI elements
@@ -161,6 +160,8 @@ local function OnAddOnLoaded(_, name)
         ApplySynergySettings()
     end)
 
+    SetFloatingMarkerGlobalAlpha(1)
+
     ----------- Addon specific stuff -----------
 
     if Raidificator then -- Hide top left raidificator status
@@ -171,31 +172,6 @@ local function OnAddOnLoaded(_, name)
             origRaidificatorFunction(...)
             if not RaidificatorStatusFrame:IsHidden() then
 			    RaidificatorStatusFrame:SetHidden(true)
-            end
-        end
-    end
-
-    if PITHKA and PITHKA_GUI then -- Resize trial window dynamically, and add padding at the bottom
-        if not origPithkaFunction then 
-            origPithkaFunction = PITHKA.UI.Layout.updateScreenSize
-        end
-        if not origPithkaFunction2 then -- remove tooltip for non-existent achievement links
-            origPithkaFunction2 = PITHKA.UI.Icons.achievement
-        end
-        PITHKA.UI.Layout.updateScreenSize = function(...)
-            local w, h
-            origPithkaFunction(...)
-            if PITHKA.SV.state.currentScreen == 'trial' then 
-                w = 930 + (PITHKA.SV.state.showExtra and 225 or 0)
-                h = 150 + 25 * #PITHKA.Data.Achievements.DBFilter({TYPE='trial'}) 
-                PITHKA_GUI:SetDimensions(w, h)
-            end
-        end
-        PITHKA.UI.Icons.achievement = function(data)
-            if data.a==nil then 
-                data.t  = PITHKA.UI.Constants.texture.X
-                data.c  = PITHKA.UI.Constants.rgbGray
-                return PITHKA.UI.Icons.basic(data)
             end
         end
     end
@@ -484,7 +460,7 @@ local function OnAddOnLoaded(_, name)
         local hours, minutes, seconds = GetGlobalTimeOfDay()
         local timestamp = hours * 3600 + minutes * 60 + seconds
         local time = ZO_FormatTime(timestamp, TIME_FORMAT_STYLE_CLOCK_TIME, TIME_FORMAT_PRECISION_SECONDS, TIME_FORMAT_DIRECTION_DESCENDING)
-        d("Current time: " .. time)
+        d("Current game-world time: " .. time)
     end
 
     local function PrintLatency()
@@ -504,6 +480,64 @@ local function OnAddOnLoaded(_, name)
         end
     end
 
+    local function saveCombatEvent(e, ...)
+        local timestamp = GetTimeStamp()
+        if not savedVariables.combatEvents then
+            savedVariables.combatEvents = {}
+        end
+        table.insert(savedVariables.combatEvents, {
+            timestamp = timestamp,
+            data = ...
+        })
+    end
+
+    local function printCombatEventToChat(eventCode, ...)
+        if eventCode == EVENT_COMBAT_EVENT then
+            local result, isError, abilityName, _, _, sourceName, _, targetName, _, hitValue, _, damageType, _, sourceUnitId, targetUnitId, abilityId = ...
+            if result == ACTION_RESULT_DAMAGE or result == ACTION_RESULT_CRITICAL_DAMAGE then
+                d(zo_strformat(
+                    "Damage: Source: <<1>> -> Target: <<2>> | Hit: <<3>> | DamageType: <<4>> | Ability: <<5>> (ID: <<6>>)",
+                    sourceName,
+                    targetName,
+                    hitValue,
+                    GetString("SI_DAMAGETYPE", damageType),
+                    abilityName,
+                    abilityId
+                ))
+            end
+        elseif eventCode == EVENT_POWER_UPDATE then
+            local unitTag, _, powerType, powerValue, powerMax = ...
+            d(zo_strformat(
+                "PowerUpdate: <<1>> | Type: <<2>> | Value: <<3>> / <<4>>",
+                unitTag,
+                GetString("SI_COMBATMECHANICFLAGS", powerType),
+                powerValue,
+                powerMax
+            ))
+        end
+    end
+
+    local combatEvents = false
+    local function logCombatEvents()
+        if combatEvents then 
+            EVENT_MANAGER:UnregisterForEvent("RicingCombatEvents", EVENT_COMBAT_EVENT)
+            EVENT_MANAGER:UnregisterForEvent("RicingCombatEvents", EVENT_POWER_UPDATE)
+            combatEvents = false
+        else
+            EVENT_MANAGER:RegisterForEvent("RicingCombatEvents", EVENT_COMBAT_EVENT, printCombatEventToChat)
+            EVENT_MANAGER:RegisterForEvent("RicingCombatEvents", EVENT_POWER_UPDATE, printCombatEventToChat)
+            combatEvents = true
+        end
+    end
+
+    local function clearChat()
+        local primaryChatContainer = pChat.CONSTANTS.CHAT_SYSTEM.primaryContainer
+        local tabIndex = primaryChatContainer.currentBuffer and primaryChatContainer.currentBuffer:GetParent() and primaryChatContainer.currentBuffer:GetParent().tab and primaryChatContainer.currentBuffer:GetParent().tab.index
+        pChat.pChatData.tabNotBefore[tabIndex] = GetTimeStamp()
+        primaryChatContainer.windows[tabIndex].buffer:Clear()
+        primaryChatContainer:SyncScrollToBuffer()
+    end
+
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
     SLASH_COMMANDS["/grouporder"] = PrintGroupOrder
     SLASH_COMMANDS["/timer"] = SetupTimestamp
@@ -511,6 +545,10 @@ local function OnAddOnLoaded(_, name)
     SLASH_COMMANDS["/time"] = PrintGlobalTime
     SLASH_COMMANDS["/latencyshare"] = PrintLatency
     SLASH_COMMANDS["/lograiddata"] = toggleRaidEvents
+    SLASH_COMMANDS["/logcombatevents"] = logCombatEvents
+    if pChat then
+        SLASH_COMMANDS["/clear"] = clearChat
+    end
 
     timer_control:SetHidden(true)
     timer_control:SetScale(1.5)
