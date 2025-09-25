@@ -1,4 +1,3 @@
--- Allow glow of tab target to be bigger, and aoe brightness to be increased beyond normal limits
 ZO_SharedOptions_SettingsData[SETTING_PANEL_GAMEPLAY][SETTING_TYPE_COMBAT][COMBAT_SETTING_MONSTER_TELLS_FRIENDLY_BRIGHTNESS].maxValue = 500
 ZO_SharedOptions_SettingsData[SETTING_PANEL_GAMEPLAY][SETTING_TYPE_COMBAT][COMBAT_SETTING_MONSTER_TELLS_ENEMY_BRIGHTNESS].maxValue = 500
 ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_GLOW_THICKNESS].showValueMax = 2000
@@ -123,19 +122,11 @@ local function OnAddOnLoaded(_, name)
     end)
 
     SecurePostHook(PLAYER_PROGRESS_BAR, "UpdateBar", function(...) PLAYER_PROGRESS_BAR.levelTypeIcon:SetHidden(true) end) -- hide CP colour icon
-    SecurePostHook(MAIN_MENU_KEYBOARD, "RefreshCategoryIndicators", -- hide indicator on top menu
-    function() 
-        for i, categoryLayoutData in ipairs(ZO_CATEGORY_LAYOUT_INFO) do
-            local indicators = categoryLayoutData.indicators
-            if indicators then
-                local buttonControl = ZO_MenuBar_GetButtonControl(MAIN_MENU_KEYBOARD.categoryBar, categoryLayoutData.descriptor)
-                if buttonControl then
-                    local indicatorTexture = buttonControl:GetNamedChild("Indicator")
-                    indicatorTexture:Hide()
-                end
-            end
+    for _, categoryInfo in pairs(ZO_CATEGORY_LAYOUT_INFO) do
+        categoryInfo.indicators = function()
+            return false
         end
-    end)
+    end
     ZO_MainMenuCategoryBarButton1Membership:ClearAnchors()
     ZO_MainMenuCategoryBarButton1Membership:SetAnchor(LEFT, ZO_PlayerProgressChampionPoints, RIGHT, 10, 0, 0)
     table.remove(WORLD_MAP_SCENE.fragments, 19) -- TOP_BAR_FRAGMENT
@@ -447,7 +438,7 @@ local function OnAddOnLoaded(_, name)
 
     local function PrintGroupOrder()
         for i=1,GetGroupSize() do 
-            d(i .. " " .. GetUnitDisplayName("group"..i)) 
+            d(i .. ": " .. GetUnitDisplayName("group"..i)) 
         end
     end
 
@@ -538,6 +529,19 @@ local function OnAddOnLoaded(_, name)
         primaryChatContainer:SyncScrollToBuffer()
     end
 
+    local DAMAGE_TOTAL = 1
+    local DAMAGE_BOSS = 2
+
+    local function swapDpsTypes()
+        if LibGroupCombatStats["DAMAGE_BOSS"] == DAMAGE_BOSS then
+            LibGroupCombatStats["DAMAGE_BOSS"] = DAMAGE_TOTAL 
+            LibGroupCombatStats["DAMAGE_TOTAL"] = DAMAGE_BOSS
+        else 
+            LibGroupCombatStats["DAMAGE_BOSS"] = DAMAGE_BOSS 
+            LibGroupCombatStats["DAMAGE_TOTAL"] = DAMAGE_TOTAL
+        end
+    end
+
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
     SLASH_COMMANDS["/grouporder"] = PrintGroupOrder
     SLASH_COMMANDS["/timer"] = SetupTimestamp
@@ -548,6 +552,9 @@ local function OnAddOnLoaded(_, name)
     SLASH_COMMANDS["/logcombatevents"] = logCombatEvents
     if pChat then
         SLASH_COMMANDS["/clear"] = clearChat
+    end
+    if LibGroupCombatStats then
+        SLASH_COMMANDS["/swapdps"] = swapDpsTypes
     end
 
     timer_control:SetHidden(true)
