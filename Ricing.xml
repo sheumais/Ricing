@@ -1,7 +1,7 @@
 <GuiXml>
     <Controls>
         <TopLevelControl name="Ricing_Top_Level_Control" clampedToScreen="true" mouseEnabled="true" movable="true" hidden="false">
-            <Anchor point="BOTTOMRIGHT" relativeTo="GuiRoot" relativePoint="BOTTOMRIGHT" offsetX="-620" offsetY="-61"/>
+            <Anchor point="BOTTOMRIGHT" relativeTo="GuiRoot" relativePoint="BOTTOMRIGHT" offsetX="-600" offsetY="-61"/>
             <Dimensions x="128" y="48"/>
             <Controls>
                 <Label name="$(parent)_X" font="ZoFontHeader" text="X: ">
@@ -11,6 +11,9 @@
                     <Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" relativeTo="$(parent)_X" />
                 </Label>
                 <Label name="$(parent)_Timer" font="ZoFontHeader" text="Time:">
+                    <Anchor point="BOTTOM" relativePoint="TOP" relativeTo="$(parent)_X" />
+                </Label>
+                <Label name="$(parent)_Speedo" font="ZoFontAnnounceLarge" text="m/s" hidden="true">
                     <Anchor point="BOTTOM" relativePoint="TOP" relativeTo="$(parent)_X" />
                 </Label>
             </Controls>

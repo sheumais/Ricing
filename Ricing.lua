@@ -311,14 +311,6 @@ local function OnAddOnLoaded(_, name)
         end
     end
 
-    -- if CombatAlertsData then -- tell movement direction on rockgrove portal eye because im braindead asf
-    --     CombatAlertsData.rg.eye = {
-	-- 		[153517] = "Clockwise (LEFT)  " .. zo_iconFormatInheritColor("CombatAlerts/art/arrow-cw.dds", 96, 96),
-	-- 		[153518] = "Counter-Clockwise (RIGHT)  " .. zo_iconFormatInheritColor("CombatAlerts/art/arrow-ccw.dds", 96, 96),
-	-- 	}
-    -- end
-    -- code broke this in latest update, i will try fix at some point.
-
     if CombatAlerts then 
         CombatAlerts.vars.dsrDelugeBlame = true
     end
@@ -485,9 +477,30 @@ local function OnAddOnLoaded(_, name)
     local function printCombatEventToChat(eventCode, ...)
         if eventCode == EVENT_COMBAT_EVENT then
             local result, isError, abilityName, _, _, sourceName, _, targetName, _, hitValue, _, damageType, _, sourceUnitId, targetUnitId, abilityId = ...
-            if result == ACTION_RESULT_DAMAGE or result == ACTION_RESULT_CRITICAL_DAMAGE then
-                d(zo_strformat(
-                    "Damage: Source: <<1>> -> Target: <<2>> | Hit: <<3>> | DamageType: <<4>> | Ability: <<5>> (ID: <<6>>)",
+            -- if result == ACTION_RESULT_DAMAGE or result == ACTION_RESULT_CRITICAL_DAMAGE then
+            -- if hitValue == 1  and abilityName ~= "" then 
+            --     d(zo_strformat(
+            --         "Damage: Source: <<1>> -> Target: <<2>> | Hit: <<3>> | DamageType: <<4>> | Ability: <<5>> (ID: <<6>>)",
+            --         sourceName,
+            --         targetName,
+            --         hitValue,
+            --         GetString("SI_DAMAGETYPE", damageType),
+            --         abilityName,
+            --         abilityId
+            --     ))
+            -- end
+        -- elseif eventCode == EVENT_POWER_UPDATE then
+        --     local unitTag, _, powerType, powerValue, powerMax = ...
+        --     d(zo_strformat(
+        --         "PowerUpdate: <<1>> | Type: <<2>> | Value: <<3>> / <<4>>",
+        --         unitTag,
+        --         GetString("SI_COMBATMECHANICFLAGS", powerType),
+        --         powerValue,
+        --         powerMax
+        --     ))
+            d(zo_strformat(
+                    "Result <<1>>: Source: <<2>> -> Target: <<3>> | Hit: <<4>> | DamageType: <<5>> | Ability: <<6>> (ID: <<7>>)",
+                    result,
                     sourceName,
                     targetName,
                     hitValue,
@@ -495,16 +508,6 @@ local function OnAddOnLoaded(_, name)
                     abilityName,
                     abilityId
                 ))
-            end
-        elseif eventCode == EVENT_POWER_UPDATE then
-            local unitTag, _, powerType, powerValue, powerMax = ...
-            d(zo_strformat(
-                "PowerUpdate: <<1>> | Type: <<2>> | Value: <<3>> / <<4>>",
-                unitTag,
-                GetString("SI_COMBATMECHANICFLAGS", powerType),
-                powerValue,
-                powerMax
-            ))
         end
     end
 
@@ -542,6 +545,177 @@ local function OnAddOnLoaded(_, name)
         end
     end
 
+    local function zoneChangedTestFunc()
+        EVENT_MANAGER:UnregisterForEvent("RicingZoneChanged", EVENT_ZONE_CHANGED)
+        EVENT_MANAGER:RegisterForEvent("RicingZoneChanged", EVENT_ZONE_CHANGED, function(_, z, sz, n, zid, szid)
+            d(string.format("Z:%s SZ:%s New:%s ZID:%d SZID:%d", tostring(z), tostring(sz), tostring(n), zid, szid))
+        end)
+    end
+
+    local function chatterBegin(e, optionCount)
+        if optionCount == 0 and not IsShiftKeyDown() then
+            EndInteraction(INTERACTION_CONVERSATION)
+        end
+        for i = 1, optionCount do
+            local optionString, optionType, optionalArgument, isImportant, chosenBefore, teleportNPC = GetChatterOption(i)
+            if (optionType == CHATTER_TALK_CHOICE or optionType == CHATTER_START_TALK or optionType == CHATTER_START_NEW_QUEST_BESTOWAL or optionType == CHATTER_START_ADVANCE_COMPLETABLE_QUEST_CONDITIONS or optionType == CHATTER_START_COMPLETE_QUEST) and not chosenBefore and not IsShiftKeyDown() then
+                SelectChatterOption(i)
+                break
+            end
+        end
+    end
+
+    local function conversationUpdated(e, text, optionCount)
+        chatterBegin(e, optionCount)
+    end
+
+    EVENT_MANAGER:RegisterForEvent("RicingConversation", EVENT_CONVERSATION_UPDATED, conversationUpdated)
+    EVENT_MANAGER:RegisterForEvent("RicingConversation", EVENT_CHATTER_BEGIN, chatterBegin)
+
+    local speedo_control = Ricing_Top_Level_Control_Speedo
+    local stored_position = {}
+    local speedo_last_time
+    local SPEEDO_WINDOW = 10
+    local speed_samples = {}
+    local speed_sample_index = 1
+    local speed_sample_count = 0
+
+    local function measureSpeedo()
+        local zone_id, x, y, z = GetUnitRawWorldPosition("player")
+        local now = GetGameTimeMilliseconds()
+
+        if stored_position["x"] == nil then
+            stored_position["x"] = x
+            stored_position["y"] = y
+            stored_position["z"] = z
+            speedo_last_time = now
+            return
+        end
+
+        local time_diff = now - speedo_last_time
+        if time_diff <= 0 then return end
+
+        local dx = x - stored_position["x"]
+        local dy = y - stored_position["y"]
+        local dz = z - stored_position["z"]
+
+        local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+        local velocity = distance / (time_diff / 1000)
+
+        speed_samples[speed_sample_index] = velocity
+        speed_sample_index = speed_sample_index + 1
+        if speed_sample_index > SPEEDO_WINDOW then
+            speed_sample_index = 1
+        end
+
+        if speed_sample_count < SPEEDO_WINDOW then
+            speed_sample_count = speed_sample_count + 1
+        end
+
+        local sum = 0
+        for i = 1, speed_sample_count do
+            sum = sum + speed_samples[i]
+        end
+        local avg_velocity = sum / speed_sample_count
+
+        speedo_control:SetText(string.format("%.1fm/s", avg_velocity / 100))
+
+        speedo_last_time = now
+        stored_position["x"] = x
+        stored_position["y"] = y
+        stored_position["z"] = z
+    end
+
+    local speedometer_enabled = false
+    local function toggleSpeedometer()
+        if speedometer_enabled then
+            speedometer_enabled = false
+            EVENT_MANAGER:UnregisterForUpdate("RicingSpeedo")
+            speedo_control:SetHidden(true)
+        else
+            speedometer_enabled = true
+            EVENT_MANAGER:RegisterForUpdate("RicingSpeedo", 50, measureSpeedo)
+            speedo_control:SetHidden(false)
+        end
+    end
+
+    local trial_saved_data
+
+    local TRIAL_COMPLETE_LIFESPAN_MS = 10000
+
+    local function new_handler(raidName, score, totalTime)
+        local messageParams = CENTER_SCREEN_ANNOUNCE:CreateMessageParams(CSA_CATEGORY_RAID_COMPLETE_TEXT, SOUNDS.RAID_TRIAL_COMPLETED)
+        local wasUnderTargetTime = GetRaidDuration() <= GetRaidTargetTime()
+        local formattedTime = ZO_FormatTimeMilliseconds(totalTime, TIME_FORMAT_STYLE_COLONS, TIME_FORMAT_PRECISION_MILLISECONDS)
+        local vitalityBonus = GetCurrentRaidLifeScoreBonus()
+        local currentCount = GetRaidReviveCountersRemaining()
+        local maxCount = GetCurrentRaidStartingReviveCounters()
+
+        messageParams:SetEndOfRaidData({ score, formattedTime, wasUnderTargetTime, vitalityBonus, zo_strformat(SI_REVIVE_COUNTER_REVIVES_USED, currentCount, maxCount) })
+        messageParams:SetText(zo_strformat(SI_TRIAL_COMPLETED_LARGE, raidName))
+        messageParams:SetLifespanMS(TRIAL_COMPLETE_LIFESPAN_MS)
+        messageParams:SetCSAType(CENTER_SCREEN_ANNOUNCE_TYPE_RAID_TRIAL)
+        return messageParams
+    end
+
+    local old_handler = ZO_CenterScreenAnnounce_GetEventHandler
+    function ZO_CenterScreenAnnounce_GetEventHandler(event_id)
+        if event_id == CENTER_SCREEN_ANNOUNCE_TYPE_RAID_TRIAL then
+            return new_handler
+        else
+            return old_handler(event_id)
+        end
+    end
+
+    local function createTrialMessage(data)
+        local messageParams = CENTER_SCREEN_ANNOUNCE:CreateMessageParams(CSA_CATEGORY_RAID_COMPLETE_TEXT, SOUNDS.RAID_TRIAL_COMPLETED)
+        messageParams:SetEndOfRaidData({
+            data.score,
+            data.totalTime,
+            data.wasUnderTargetTime,
+            data.vitalityBonus,
+            zo_strformat(SI_REVIVE_COUNTER_REVIVES_USED, data.currentCount, data.maxCount)
+        })
+        messageParams:SetText(zo_strformat(SI_TRIAL_COMPLETED_LARGE, data.raidName))
+        messageParams:SetLifespanMS(5000)
+        messageParams:SetCSAType(CENTER_SCREEN_ANNOUNCE_TYPE_RAID_TRIAL)
+        return messageParams
+    end
+
+    local function saveTrialData(_, raidName, score, totalTime)
+        trial_saved_data = {
+            raidName = raidName,
+            score = score,
+            totalTime = ZO_FormatTimeMilliseconds(totalTime, TIME_FORMAT_STYLE_COLONS, TIME_FORMAT_PRECISION_MILLISECONDS),
+            wasUnderTargetTime = GetRaidDuration() <= GetRaidTargetTime(),
+            vitalityBonus = GetCurrentRaidLifeScoreBonus(),
+            currentCount = GetRaidReviveCountersRemaining(),
+            maxCount = GetCurrentRaidStartingReviveCounters()
+        }
+
+        CENTER_SCREEN_ANNOUNCE:AddMessageWithParams(createTrialMessage(trial_saved_data))
+
+    end
+
+    local function replayTrialScore()
+        if trial_saved_data then
+            CENTER_SCREEN_ANNOUNCE:AddMessageWithParams(createTrialMessage(trial_saved_data))
+        else
+            local testData = {
+                raidName = "Test Trial",
+                score = 1000,
+                totalTime = ZO_FormatTimeMilliseconds(123456, TIME_FORMAT_STYLE_COLONS, TIME_FORMAT_PRECISION_MILLISECONDS),
+                wasUnderTargetTime = true,
+                vitalityBonus = 0,
+                currentCount = 3,
+                maxCount = 5
+            }
+            CENTER_SCREEN_ANNOUNCE:AddMessageWithParams(createTrialMessage(testData))
+        end
+    end
+
+    EVENT_MANAGER:RegisterForEvent("RicingTrialSave", EVENT_RAID_TRIAL_COMPLETE, saveTrialData)
+
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
     SLASH_COMMANDS["/grouporder"] = PrintGroupOrder
     SLASH_COMMANDS["/timer"] = SetupTimestamp
@@ -550,6 +724,9 @@ local function OnAddOnLoaded(_, name)
     SLASH_COMMANDS["/latencyshare"] = PrintLatency
     SLASH_COMMANDS["/lograiddata"] = toggleRaidEvents
     SLASH_COMMANDS["/logcombatevents"] = logCombatEvents
+    SLASH_COMMANDS["/zonechanged"] = zoneChangedTestFunc
+    SLASH_COMMANDS["/speedo"] = toggleSpeedometer
+    SLASH_COMMANDS["/trialscore"] = replayTrialScore
     if pChat then
         SLASH_COMMANDS["/clear"] = clearChat
     end
