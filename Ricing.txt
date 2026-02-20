@@ -1,8 +1,8 @@
 ## Title: Ricing
 ## Author: TheMrPancake
 ## Version: 1.0
-## APIVersion: 101044
-## OptionalDependsOn: PithkaAchievementTracker Raidificator OdySupportIcons HideGroupNecro Breadcrumbs QcellDreadsailReefHelper Qcell_DSRHelper_Scorepush_Patch SanitysEdgeHelper CombatAlerts ZO_Ingame pChat LibGroupCombatStats
+## APIVersion: 101048
+## OptionalDependsOn: PithkaAchievementTracker Raidificator OdySupportIcons HideGroupNecro Breadcrumbs QcellDreadsailReefHelper Qcell_DSRHelper_Scorepush_Patch SanitysEdgeHelper CombatAlerts ZO_Ingame pChat LibGroupCombatStats LibAddonMenu-2.0>=38
 ## SavedVariables: RicingSavedVariables
 
 Ricing.lua

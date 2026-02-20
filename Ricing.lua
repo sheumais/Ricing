@@ -1,20 +1,30 @@
 ZO_SharedOptions_SettingsData[SETTING_PANEL_GAMEPLAY][SETTING_TYPE_COMBAT][COMBAT_SETTING_MONSTER_TELLS_FRIENDLY_BRIGHTNESS].maxValue = 500
 ZO_SharedOptions_SettingsData[SETTING_PANEL_GAMEPLAY][SETTING_TYPE_COMBAT][COMBAT_SETTING_MONSTER_TELLS_ENEMY_BRIGHTNESS].maxValue = 500
-ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_GLOW_THICKNESS].showValueMax = 2000
-ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_GLOW_THICKNESS].maxValue = 20
-ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_TARGET_GLOW_INTENSITY].showValueMax = 2000
-ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_TARGET_GLOW_INTENSITY].maxValue = 20
+ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_GLOW_THICKNESS].showValueMax = 5000
+ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_GLOW_THICKNESS].maxValue = 50
+ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_TARGET_GLOW_INTENSITY].showValueMax = 5000
+ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_TARGET_GLOW_INTENSITY].maxValue = 50
 
 local origRaidificatorFunction
 local origHideGroupFunction
-local origMatchBrandsFunction
 local origMazeFunction
 local savedVariables
+
+local default_settings = {
+    highLatencyTracker = true,
+    hideControls = true,
+    keepChatClosed = true,
+    applySynergySettings = true,
+    raidificatorReverse = true,
+    hideGroupNecroChanges = true,
+    breadcrumbsAnsuulMaze = true,
+    autoskipChatter = true,
+}
 
 local function OnAddOnLoaded(_, name)
     if name ~= "Ricing" then return end
     EVENT_MANAGER:UnregisterForEvent("Ricing", EVENT_ADD_ON_LOADED)
-    savedVariables = ZO_SavedVars:NewAccountWide("RicingSavedVariables", 1, nil, {})
+    savedVariables = ZO_SavedVars:NewAccountWide("RicingSavedVariables", 1, nil, default_settings)
 
     local CUSTOM_MAX_LATENCY = 9999
     local HIGH_LATENCY = 300
@@ -73,89 +83,97 @@ local function OnAddOnLoaded(_, name)
         ZO_PerformanceMetersBg,
     }
 
-    for _, control in ipairs(controlsToHide) do -- Hide various default UI elements
-        control:SetHidden(true)
-    end
+    if savedVariables.hideControls then
+        for _, control in ipairs(controlsToHide) do -- Hide various default UI elements
+            control:SetHidden(true)
+        end
 
-    for _, control in ipairs(controlsToDisappear) do 
-        control:SetTexture("")
-        control:SetColor(0,0,0,0)
-    end
+        for _, control in ipairs(controlsToDisappear) do 
+            control:SetTexture("")
+            control:SetColor(0,0,0,0)
+        end
 
-    ZO_PlayerProgressLevelTypeIcon:SetWidth(0) -- Hide icon
+        ZO_PlayerProgressLevelTypeIcon:SetWidth(0) -- Hide icon
 
-    ZO_PreHook(PERFORMANCE_METERS, "SetLatency", function(self, latency) -- Fix latency to be useful for OCE players
-        if latency > CUSTOM_MAX_LATENCY then
-            latency = CUSTOM_MAX_LATENCY
-        end
-        local overMaxLabel
-        if latency == CUSTOM_MAX_LATENCY then
-            overMaxLabel = zo_strformat(SI_LATENCY_EXTREME_FORMAT, latency)
-        end
-    
-        if overMaxLabel then
-            self.latencyLabel:SetText(overMaxLabel)
-        else
-            self.latencyLabel:SetText(latency)
-        end
-        local threshold = LOW_LATENCY
-        if latency >= MEDIUM_LATENCY then
-            threshold = (latency >= HIGH_LATENCY) and HIGH_LATENCY or MEDIUM_LATENCY
-        end
-        if self.previousLatencyThreshold ~= threshold then
-            local icon = LATENCY_ICONS[threshold]
-            self.latencyBars:SetTexture(icon.image)
-            self.latencyBars:SetColor(icon.color:UnpackRGBA())
-            self.latencyLabel:SetColor(icon.color:UnpackRGBA())
-            self.previousLatencyThreshold = threshold
-        end
-        return true
-    end)
+        ZO_MainMenuCategoryBarButton1Membership:ClearAnchors()
+        ZO_MainMenuCategoryBarButton1Membership:SetAnchor(LEFT, ZO_PlayerProgressChampionPoints, RIGHT, 10, 0, 0)
+        table.remove(WORLD_MAP_SCENE.fragments, 19) -- TOP_BAR_FRAGMENT
+        table.remove(WORLD_MAP_SCENE.fragments, 18) -- 
+        table.remove(WORLD_MAP_SCENE.fragments, 17) -- idk why these must be removed but whatever lol
+        WORLD_MAP_SCENE:RefreshFragments()
 
-    STUB_SETTING_KEEP_MINIMIZED = true -- Keep chat minimised unless opened by the player
-    SecurePostHook(KEYBOARD_CHAT_SYSTEM, "StartTextEntry", function()
-        if not KEYBOARD_CHAT_SYSTEM.isMinimized and not IsShiftKeyDown() then 
-            KEYBOARD_CHAT_SYSTEM.shouldMinimizeAfterEntry = true
-        else 
-            KEYBOARD_CHAT_SYSTEM.shouldMinimizeAfterEntry = false
-        end
-    end)
+        ZO_Compass:SetAnchor(TOPLEFT, COMPASS_FRAME.control, TOPLEFT, 0, -512) -- hide compass
 
-    SecurePostHook(PLAYER_PROGRESS_BAR, "UpdateBar", function(...) PLAYER_PROGRESS_BAR.levelTypeIcon:SetHidden(true) end) -- hide CP colour icon
-    for _, categoryInfo in pairs(ZO_CATEGORY_LAYOUT_INFO) do
-        categoryInfo.indicators = function()
-            return false
+        SecurePostHook(PLAYER_PROGRESS_BAR, "UpdateBar", function(...) PLAYER_PROGRESS_BAR.levelTypeIcon:SetHidden(true) end) -- hide CP colour icon
+        for _, categoryInfo in pairs(ZO_CATEGORY_LAYOUT_INFO) do
+            categoryInfo.indicators = function()
+                return false
+            end
         end
     end
-    ZO_MainMenuCategoryBarButton1Membership:ClearAnchors()
-    ZO_MainMenuCategoryBarButton1Membership:SetAnchor(LEFT, ZO_PlayerProgressChampionPoints, RIGHT, 10, 0, 0)
-    table.remove(WORLD_MAP_SCENE.fragments, 19) -- TOP_BAR_FRAGMENT
-    table.remove(WORLD_MAP_SCENE.fragments, 18) -- 
-    table.remove(WORLD_MAP_SCENE.fragments, 17) -- idk why these must be removed but whatever lol
-    WORLD_MAP_SCENE:RefreshFragments()
 
-    ZO_Compass:SetAnchor(TOPLEFT, COMPASS_FRAME.control, TOPLEFT, 0, -512) -- hide compass
-
-
-    local function ApplySynergySettings()
-        if not SYNERGY then return end
-    
-        if SYNERGY.action then
-            SYNERGY.action:SetHidden(true)
-        end
-
-        SYNERGY.container:ClearAnchors()
-        SYNERGY.container:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 900, 800)
+    if savedVariables.highLatencyTracker then
+        ZO_PreHook(PERFORMANCE_METERS, "SetLatency", function(self, latency) -- Fix latency to be useful for OCE players
+            if latency > CUSTOM_MAX_LATENCY then
+                latency = CUSTOM_MAX_LATENCY
+            end
+            local overMaxLabel
+            if latency == CUSTOM_MAX_LATENCY then
+                overMaxLabel = zo_strformat(SI_LATENCY_EXTREME_FORMAT, latency)
+            end
+        
+            if overMaxLabel then
+                self.latencyLabel:SetText(overMaxLabel)
+            else
+                self.latencyLabel:SetText(latency)
+            end
+            local threshold = LOW_LATENCY
+            if latency >= MEDIUM_LATENCY then
+                threshold = (latency >= HIGH_LATENCY) and HIGH_LATENCY or MEDIUM_LATENCY
+            end
+            if self.previousLatencyThreshold ~= threshold then
+                local icon = LATENCY_ICONS[threshold]
+                self.latencyBars:SetTexture(icon.image)
+                self.latencyBars:SetColor(icon.color:UnpackRGBA())
+                self.latencyLabel:SetColor(icon.color:UnpackRGBA())
+                self.previousLatencyThreshold = threshold
+            end
+            return true
+        end)
     end
-    SecurePostHook(SYNERGY, "OnSynergyAbilityChanged", function(self, ...)
-        ApplySynergySettings()
-    end)
+
+    if savedVariables.keepChatClosed then
+        STUB_SETTING_KEEP_MINIMIZED = true -- Keep chat minimised unless opened by the player
+        SecurePostHook(KEYBOARD_CHAT_SYSTEM, "StartTextEntry", function()
+            if not KEYBOARD_CHAT_SYSTEM.isMinimized and not IsShiftKeyDown() then 
+                KEYBOARD_CHAT_SYSTEM.shouldMinimizeAfterEntry = true
+            else 
+                KEYBOARD_CHAT_SYSTEM.shouldMinimizeAfterEntry = false
+            end
+        end)
+    end
+
+    if savedVariables.applySynergySettings then
+        local function ApplySynergySettings()
+            if not SYNERGY then return end
+
+            if SYNERGY.action then
+                SYNERGY.action:SetHidden(true)
+            end
+
+            SYNERGY.container:ClearAnchors()
+            SYNERGY.container:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 900, 800)
+        end
+        SecurePostHook(SYNERGY, "OnSynergyAbilityChanged", function(self, ...)
+            ApplySynergySettings()
+        end)
+    end
 
     SetFloatingMarkerGlobalAlpha(1)
 
     ----------- Addon specific stuff -----------
 
-    if Raidificator then -- Hide top left raidificator status
+    if Raidificator and savedVariables.raidificatorReverse then -- Hide top left raidificator status
         if not origRaidificatorFunction then 
             origRaidificatorFunction = Raidificator.UpdateStatusElement
         end
@@ -167,7 +185,7 @@ local function OnAddOnLoaded(_, name)
         end
     end
 
-    if HideGroupNecro and OSIStore then -- show dps icons when hiding group so i know where people are
+    if HideGroupNecro and OSIStore and savedVariables.hideGroupNecroChanges then -- show dps icons when hiding group so i know where people are
         OPTIONS = ZO_SavedVars:NewAccountWide( "OSIStore", 1, nil, {} )
         OPTIONS[3].icon = "esoui/art/icons/mapkey/mapkey_groupmember.dds"
         OPTIONS[3].size = 48
@@ -187,7 +205,7 @@ local function OnAddOnLoaded(_, name)
         end
     end
 
-    if Breadcrumbs then 
+    if Breadcrumbs and savedVariables.breadcrumbsAnsuulMaze then 
         local triangleCorners = {
             {196136, 37820}, -- Green (1)
             {203774, 37870}, -- Blue (2)
@@ -311,7 +329,7 @@ local function OnAddOnLoaded(_, name)
         end
     end
 
-    if CombatAlerts then 
+    if CombatAlerts then
         CombatAlerts.vars.dsrDelugeBlame = true
     end
 
@@ -435,8 +453,7 @@ local function OnAddOnLoaded(_, name)
     end
 
     local function TeleportToPrimary()
-        local primary_house_id = GetHousingPrimaryHouse()
-        RequestJumpToHouse(primary_house_id, false)
+        RequestJumpToHouse(GetHousingPrimaryHouse())
     end
 
     local function PrintGlobalTime()
@@ -513,7 +530,7 @@ local function OnAddOnLoaded(_, name)
 
     local combatEvents = false
     local function logCombatEvents()
-        if combatEvents then 
+        if combatEvents then
             EVENT_MANAGER:UnregisterForEvent("RicingCombatEvents", EVENT_COMBAT_EVENT)
             EVENT_MANAGER:UnregisterForEvent("RicingCombatEvents", EVENT_POWER_UPDATE)
             combatEvents = false
@@ -530,19 +547,6 @@ local function OnAddOnLoaded(_, name)
         pChat.pChatData.tabNotBefore[tabIndex] = GetTimeStamp()
         primaryChatContainer.windows[tabIndex].buffer:Clear()
         primaryChatContainer:SyncScrollToBuffer()
-    end
-
-    local DAMAGE_TOTAL = 1
-    local DAMAGE_BOSS = 2
-
-    local function swapDpsTypes()
-        if LibGroupCombatStats["DAMAGE_BOSS"] == DAMAGE_BOSS then
-            LibGroupCombatStats["DAMAGE_BOSS"] = DAMAGE_TOTAL 
-            LibGroupCombatStats["DAMAGE_TOTAL"] = DAMAGE_BOSS
-        else 
-            LibGroupCombatStats["DAMAGE_BOSS"] = DAMAGE_BOSS 
-            LibGroupCombatStats["DAMAGE_TOTAL"] = DAMAGE_TOTAL
-        end
     end
 
     local function zoneChangedTestFunc()
@@ -569,8 +573,10 @@ local function OnAddOnLoaded(_, name)
         chatterBegin(e, optionCount)
     end
 
-    EVENT_MANAGER:RegisterForEvent("RicingConversation", EVENT_CONVERSATION_UPDATED, conversationUpdated)
-    EVENT_MANAGER:RegisterForEvent("RicingConversation", EVENT_CHATTER_BEGIN, chatterBegin)
+    if savedVariables.autoskipChatter then
+        EVENT_MANAGER:RegisterForEvent("RicingConversation", EVENT_CONVERSATION_UPDATED, conversationUpdated)
+        EVENT_MANAGER:RegisterForEvent("RicingConversation", EVENT_CHATTER_BEGIN, chatterBegin)
+    end
 
     local speedo_control = Ricing_Top_Level_Control_Speedo
     local stored_position = {}
@@ -730,14 +736,102 @@ local function OnAddOnLoaded(_, name)
     if pChat then
         SLASH_COMMANDS["/clear"] = clearChat
     end
-    if LibGroupCombatStats then
-        SLASH_COMMANDS["/swapdps"] = swapDpsTypes
-    end
 
     timer_control:SetHidden(true)
     timer_control:SetScale(1.5)
     x_pos:SetHidden(true)
     z_pos:SetHidden(true)
+
+    local panelData = {
+        type = "panel",
+        name = "Ricing",
+        displayName = "Ricing",
+        author = "TheMrPancake",
+    }
+
+    local optionsTable = {
+        {
+            type = "checkbox",
+            name = "OCE Latency",
+            getFunc = function() return savedVariables.highLatencyTracker end,
+            setFunc = function(value) savedVariables.highLatencyTracker = value end,
+            tooltip = "Increases max latency shown to 9999 and modifies icon colour to reflect that 250 ping is normal.",
+            requiresReload = true,
+            default = default_settings.highLatencyTracker,
+        },
+        {
+            type = "checkbox",
+            name = "Hide Controls",
+            getFunc = function() return savedVariables.hideControls end,
+            setFunc = function(value) savedVariables.hideControls = value end,
+            tooltip = "Hides various UI elements such as the compass, the closed chat background and icons and the menu at the top.",
+            requiresReload = true,
+            default = default_settings.hideControls,
+        },
+        {
+            type = "checkbox",
+            name = "Keep Chat Closed",
+            getFunc = function() return savedVariables.keepChatClosed end,
+            setFunc = function(value) savedVariables.keepChatClosed = value end,
+            tooltip = "The chat box will close itself after you finish typing a message. Hold shift when opening the chat to make it stay open (like normal)",
+            requiresReload = true,
+            default = default_settings.keepChatClosed,
+        },
+        {
+            type = "checkbox",
+            name = "Dialogue Skip",
+            getFunc = function() return savedVariables.autoskipChatter end,
+            setFunc = function(value) savedVariables.autoskipChatter = value end,
+            tooltip = "Automatically talks to NPCs. Hold shift to pause.",
+            requiresReload = true,
+            default = default_settings.autoskipChatter,
+        },
+        {
+            type = "checkbox",
+            name = "Synergy Simplify",
+            getFunc = function() return savedVariables.applySynergySettings end,
+            setFunc = function(value) savedVariables.applySynergySettings = value end,
+            tooltip = "Modify the synergy display to have only the icon and keybind, and move it to a pre-determined location. For better customisation use BetterSynergy addon.",
+            requiresReload = true,
+            default = default_settings.applySynergySettings,
+        },
+        {
+            type = "checkbox",
+            name = "Raidificator: Invert visibility",
+            getFunc = function() return savedVariables.raidificatorReverse end,
+            setFunc = function(value) savedVariables.raidificatorReverse = value end,
+            tooltip = "Inverts the visibility of the raidificator tracker so that it doesn't distract during the run.",
+            requiresReload = true,
+            default = default_settings.raidificatorReverse,
+        },
+        {
+            type = "checkbox",
+            name = "HideGroupNecro: DPS Icons",
+            getFunc = function() return savedVariables.hideGroupNecroChanges end,
+            setFunc = function(value) savedVariables.hideGroupNecroChanges = value end,
+            tooltip = "Sets some custom icons for various things and turns on/off the icons over DPS heads when toggling hidegroup.",
+            requiresReload = true,
+            default = default_settings.hideGroupNecroChanges,
+        },
+        {
+            type = "checkbox",
+            name = "Breadcrumbs & Sanity's Edge Helper: Ansuul Maze",
+            getFunc = function() return savedVariables.breadcrumbsAnsuulMaze end,
+            setFunc = function(value) savedVariables.breadcrumbsAnsuulMaze = value end,
+            tooltip = "Provides a visual line guide for completing the current maze.",
+            requiresReload = true,
+            default = default_settings.breadcrumbsAnsuulMaze,
+        },
+        {
+            type = "description",
+            width = "full",
+            text = "Custom commands:\n/showpos - Brings up current 3D position coordinates\n/grouporder - prints the grouporder in chat (spaulder priority)\n/timer [minutes] - timer that counts down and dings when done\n/home - teleports you to your primary house\n/time - print the in-game time. 6 hours irl = day cycle in nirn\n/latencyshare - flex your 9999 ping to the chat\n/speedo - enable a speedometer ui element for measuring your 3D speed\n/trialscore - replay the most recent trial score for a perfect screenshot\n/clear (Requires pChat) - clears the chat",
+        },
+    }
+    if LibAddonMenu2 then 
+        LibAddonMenu2:RegisterAddonPanel("RicingLAMPanel", panelData)
+        LibAddonMenu2:RegisterOptionControls("RicingLAMPanel", optionsTable)
+    end
 end
 
 EVENT_MANAGER:RegisterForEvent("Ricing", EVENT_ADD_ON_LOADED, OnAddOnLoaded)
