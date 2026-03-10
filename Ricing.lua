@@ -20,6 +20,7 @@ local default_settings = {
     breadcrumbsAnsuulMaze = true,
     autoskipChatter = true,
     pvpIcons = true,
+    repairDings = true,
 }
 
 local function OnAddOnLoaded(_, name)
@@ -761,7 +762,7 @@ local function OnAddOnLoaded(_, name)
         local numCategories = GetNumAdvancedStatCategories()
         d(string.format("Advanced Stat Categories: %d", numCategories))
 
-        for categoryIndex = 0, numCategories do
+        for categoryIndex = 1, numCategories do
             local categoryId = GetAdvancedStatsCategoryId(categoryIndex)
             local displayName, numStats = GetAdvancedStatCategoryInfo(categoryId)
 
@@ -785,6 +786,29 @@ local function OnAddOnLoaded(_, name)
             end
         end
     end
+
+    local repairTimestamp
+    local function repairCooldownChecker(_)
+        local currentTime = GetGameTimeMilliseconds()
+        if repairTimestamp and currentTime then
+            if currentTime - repairTimestamp >= 2400 then
+                PlaySound(SOUNDS.JUSTICE_PICKPOCKET_BONUS)
+                PlaySound(SOUNDS.JUSTICE_PICKPOCKET_BONUS)
+                PlaySound(SOUNDS.JUSTICE_PICKPOCKET_BONUS)
+                repairTimestamp = nil
+                EVENT_MANAGER:UnregisterForUpdate("RicingRepairCooldownChecker")
+            end
+        end
+    end
+
+    local function storeRepairCooldownTimestamp()
+        repairTimestamp = GetGameTimeMilliseconds()
+        EVENT_MANAGER:RegisterForUpdate("RicingRepairCooldownChecker", 10, repairCooldownChecker)
+    end
+
+    EVENT_MANAGER:RegisterForEvent("RicingRepair", EVENT_COMBAT_EVENT, storeRepairCooldownTimestamp)
+    EVENT_MANAGER:AddFilterForEvent("RicingRepair", EVENT_COMBAT_EVENT, REGISTER_FILTER_ABILITY_ID, 209494)
+    EVENT_MANAGER:AddFilterForEvent("RicingRepair", EVENT_COMBAT_EVENT, REGISTER_FILTER_COMBAT_RESULT, ACTION_RESULT_BEGIN)
 
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
     SLASH_COMMANDS["/grouporder"] = PrintGroupOrder
@@ -860,6 +884,15 @@ local function OnAddOnLoaded(_, name)
             requiresReload = true,
             default = default_settings.applySynergySettings,
         },
+            {
+            type = "checkbox",
+            name = "PvP Repair Kit Dings",
+            getFunc = function() return savedVariables.repairDings end,
+            setFunc = function(value) savedVariables.repairDings = value end,
+            tooltip = "Makes a ding when you should hit your repair kit. (Assumes ~150ms reaction time)",
+            requiresReload = true,
+            default = default_settings.repairDings,
+        },
         {
             type = "checkbox",
             name = "Raidificator: Invert visibility",
@@ -894,7 +927,7 @@ local function OnAddOnLoaded(_, name)
             setFunc = function(value) savedVariables.pvpIcons = value end,
             tooltip = "Places the person's alliance rank icon next to their name so you can tune out the shitters.",
             requiresReload = true,
-            default = default_settings.breadcrumbsAnsuulMaze,
+            default = default_settings.pvpIcons,
         },
         {
             type = "description",
