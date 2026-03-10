@@ -19,6 +19,7 @@ local default_settings = {
     hideGroupNecroChanges = true,
     breadcrumbsAnsuulMaze = true,
     autoskipChatter = true,
+    pvpIcons = true,
 }
 
 local function OnAddOnLoaded(_, name)
@@ -331,6 +332,40 @@ local function OnAddOnLoaded(_, name)
 
     if CombatAlerts then
         CombatAlerts.vars.dsrDelugeBlame = true
+    end
+
+    local new_chat_handler
+    local old_chat_handler = pChat.FormatMessage
+
+    local function new_handler(chanCode, from, text, isCS, fromDisplayName, originalFrom, originalText,
+        DDSBeforeAll, TextBeforeAll, DDSBeforeSender, TextBeforeSender,
+        TextAfterSender, DDSAfterSender,
+        DDSBeforeText, TextBeforeText, TextAfterText, DDSAfterText)
+
+        if (IsInAvAZone() and (chanCode == CHAT_CHANNEL_ZONE or chanCode == CHAT_CHANNEL_SAY or chanCode == SI_CHAT_CHANNEL_NAME_SAY or chanCode == SI_CHAT_CHANNEL_NAME_SOCIAL or chanCode == CHAT_CHANNEL_YELL or chanCode == SI_CHAT_CHANNEL_NAME_PARTY)) then
+            local allianceColor = PVP_Alerts_Main_Table:NameToAllianceColor(from, nil, true, GetUnitAlliance("player"))
+            local icon
+            if GetRawUnitName("player") == from then 
+                icon = PVP_Alerts_Main_Table:GetFormattedAvaRankIcon(GetUnitAvARank("player"), allianceColor, 20, from) or ""
+            else
+                icon = PVP_Alerts_Main_Table:GetFormattedAvaRankIcon(nil, allianceColor, 20, from) or ""
+            end
+            DDSBeforeSender = icon
+        end
+
+        return old_chat_handler(
+            chanCode, from, text, isCS, fromDisplayName, originalFrom, originalText,
+            DDSBeforeAll, TextBeforeAll, DDSBeforeSender, TextBeforeSender,
+            TextAfterSender, DDSAfterSender,
+            DDSBeforeText, TextBeforeText, TextAfterText, DDSAfterText
+        )
+    end
+    new_chat_handler = new_handler
+
+    if pChat and pChat.FormatMessage and new_chat_handler and PVP_Alerts_Main_Table and savedVariables.pvpIcons then
+        pChat.FormatMessage = new_chat_handler
+        pChat.InitializeChatHandlers()
+        pChat.db.usePVPKillFeedChatHandler = false
     end
 
     local function handleRaidScoreChange(e, reason, amount, total)
@@ -722,6 +757,35 @@ local function OnAddOnLoaded(_, name)
 
     EVENT_MANAGER:RegisterForEvent("RicingTrialSave", EVENT_RAID_TRIAL_COMPLETE, saveTrialData)
 
+    local function printAdvancedStats()
+        local numCategories = GetNumAdvancedStatCategories()
+        d(string.format("Advanced Stat Categories: %d", numCategories))
+
+        for categoryIndex = 0, numCategories do
+            local categoryId = GetAdvancedStatsCategoryId(categoryIndex)
+            local displayName, numStats = GetAdvancedStatCategoryInfo(categoryId)
+
+            if numStats then
+                d(string.format("== Category %d: %s (ID: %s) | Stats: %d ==",
+                    categoryIndex, tostring(displayName), tostring(categoryId), numStats))
+
+                for statIndex = 0, numStats do
+                    local statType, statDisplayName, description, flatValueDescription, percentValueDescription =
+                        GetAdvancedStatInfo(categoryId, statIndex)
+
+                    local statFormatType = GetAdvancedStatValue(statType)
+
+                    d(string.format("[%d] StatType: %s", statIndex, tostring(statType)))
+                    d(string.format("Name: %s", tostring(statDisplayName)))
+                    d(string.format("FormatType: %s", tostring(statFormatType)))
+                    d(string.format("Description: %s", tostring(description)))
+                    d(string.format("FlatDesc: %s", tostring(flatValueDescription)))
+                    d(string.format("PercentDesc: %s", tostring(percentValueDescription)))
+                end
+            end
+        end
+    end
+
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
     SLASH_COMMANDS["/grouporder"] = PrintGroupOrder
     SLASH_COMMANDS["/timer"] = SetupTimestamp
@@ -736,6 +800,7 @@ local function OnAddOnLoaded(_, name)
     if pChat then
         SLASH_COMMANDS["/clear"] = clearChat
     end
+    SLASH_COMMANDS["/advancedstats"] = printAdvancedStats
 
     timer_control:SetHidden(true)
     timer_control:SetScale(1.5)
@@ -819,6 +884,15 @@ local function OnAddOnLoaded(_, name)
             getFunc = function() return savedVariables.breadcrumbsAnsuulMaze end,
             setFunc = function(value) savedVariables.breadcrumbsAnsuulMaze = value end,
             tooltip = "Provides a visual line guide for completing the current maze.",
+            requiresReload = true,
+            default = default_settings.breadcrumbsAnsuulMaze,
+        },
+        {
+            type = "checkbox",
+            name = "pChat & PvPAlerts: Alliance Rank Icons in chat",
+            getFunc = function() return savedVariables.pvpIcons end,
+            setFunc = function(value) savedVariables.pvpIcons = value end,
+            tooltip = "Places the person's alliance rank icon next to their name so you can tune out the shitters.",
             requiresReload = true,
             default = default_settings.breadcrumbsAnsuulMaze,
         },
