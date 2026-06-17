@@ -1,3 +1,6 @@
+Ricing = Ricing or {}
+local Ricing = Ricing
+
 ZO_SharedOptions_SettingsData[SETTING_PANEL_GAMEPLAY][SETTING_TYPE_COMBAT][COMBAT_SETTING_MONSTER_TELLS_FRIENDLY_BRIGHTNESS].maxValue = 500
 ZO_SharedOptions_SettingsData[SETTING_PANEL_GAMEPLAY][SETTING_TYPE_COMBAT][COMBAT_SETTING_MONSTER_TELLS_ENEMY_BRIGHTNESS].maxValue = 500
 ZO_SharedOptions_SettingsData[SETTING_PANEL_NAMEPLATES][SETTING_TYPE_IN_WORLD][IN_WORLD_UI_SETTING_GLOW_THICKNESS].showValueMax = 5000
@@ -45,12 +48,12 @@ local function OnAddOnLoaded(_, name)
         ZO_CompassFrame,
         ZO_PerformanceMetersBg,
         ZO_ChatWindowMinBarBG,
-        ZO_ChatWindowNumNotifications,
-        ZO_ChatWindowNumOnlineFriends,
-        ZO_ChatWindowNumUnreadMail,
-        ZO_ChatWindowMail,
-        ZO_ChatWindowNotifications,
-        ZO_ChatWindowFriends,
+        -- ZO_ChatWindowNumNotifications,
+        -- ZO_ChatWindowNumOnlineFriends,
+        -- ZO_ChatWindowNumUnreadMail,
+        -- ZO_ChatWindowMail,
+        -- ZO_ChatWindowNotifications,
+        -- ZO_ChatWindowFriends,
         ZO_ChatWindowMinBarMaximize,
         ZO_MainMenuCategoryBar,
         ZO_MainMenuCategoryBarButton1Image,
@@ -147,7 +150,7 @@ local function OnAddOnLoaded(_, name)
     if savedVariables.keepChatClosed then
         STUB_SETTING_KEEP_MINIMIZED = true -- Keep chat minimised unless opened by the player
         SecurePostHook(KEYBOARD_CHAT_SYSTEM, "StartTextEntry", function()
-            if not KEYBOARD_CHAT_SYSTEM.isMinimized and not IsShiftKeyDown() then 
+            if not KEYBOARD_CHAT_SYSTEM.isMinimized and not IsShiftKeyDown() then
                 KEYBOARD_CHAT_SYSTEM.shouldMinimizeAfterEntry = true
             else 
                 KEYBOARD_CHAT_SYSTEM.shouldMinimizeAfterEntry = false
@@ -336,7 +339,10 @@ local function OnAddOnLoaded(_, name)
     end
 
     local new_chat_handler
-    local old_chat_handler = pChat.FormatMessage
+    local old_chat_handler
+    if pChat then
+        old_chat_handler = pChat.FormatMessage
+    end
 
     local function new_handler(chanCode, from, text, isCS, fromDisplayName, originalFrom, originalText,
         DDSBeforeAll, TextBeforeAll, DDSBeforeSender, TextBeforeSender,
@@ -365,8 +371,7 @@ local function OnAddOnLoaded(_, name)
 
     if pChat and pChat.FormatMessage and new_chat_handler and PVP_Alerts_Main_Table and savedVariables.pvpIcons then
         pChat.FormatMessage = new_chat_handler
-        pChat.InitializeChatHandlers()
-        pChat.db.usePVPKillFeedChatHandler = false
+        CHAT_ROUTER:RegisterMessageFormatter(EVENT_CHAT_MESSAGE_CHANNEL, pChat.MessageChannelReceiver)
     end
 
     local function handleRaidScoreChange(e, reason, amount, total)
@@ -758,35 +763,6 @@ local function OnAddOnLoaded(_, name)
 
     EVENT_MANAGER:RegisterForEvent("RicingTrialSave", EVENT_RAID_TRIAL_COMPLETE, saveTrialData)
 
-    local function printAdvancedStats()
-        local numCategories = GetNumAdvancedStatCategories()
-        d(string.format("Advanced Stat Categories: %d", numCategories))
-
-        for categoryIndex = 1, numCategories do
-            local categoryId = GetAdvancedStatsCategoryId(categoryIndex)
-            local displayName, numStats = GetAdvancedStatCategoryInfo(categoryId)
-
-            if numStats then
-                d(string.format("== Category %d: %s (ID: %s) | Stats: %d ==",
-                    categoryIndex, tostring(displayName), tostring(categoryId), numStats))
-
-                for statIndex = 0, numStats do
-                    local statType, statDisplayName, description, flatValueDescription, percentValueDescription =
-                        GetAdvancedStatInfo(categoryId, statIndex)
-
-                    local statFormatType = GetAdvancedStatValue(statType)
-
-                    d(string.format("[%d] StatType: %s", statIndex, tostring(statType)))
-                    d(string.format("Name: %s", tostring(statDisplayName)))
-                    d(string.format("FormatType: %s", tostring(statFormatType)))
-                    d(string.format("Description: %s", tostring(description)))
-                    d(string.format("FlatDesc: %s", tostring(flatValueDescription)))
-                    d(string.format("PercentDesc: %s", tostring(percentValueDescription)))
-                end
-            end
-        end
-    end
-
     local repairTimestamp
     local function repairCooldownChecker(_)
         local currentTime = GetGameTimeMilliseconds()
@@ -810,21 +786,120 @@ local function OnAddOnLoaded(_, name)
     EVENT_MANAGER:AddFilterForEvent("RicingRepair", EVENT_COMBAT_EVENT, REGISTER_FILTER_ABILITY_ID, 209494)
     EVENT_MANAGER:AddFilterForEvent("RicingRepair", EVENT_COMBAT_EVENT, REGISTER_FILTER_COMBAT_RESULT, ACTION_RESULT_BEGIN)
 
+    COLLECTIONS_BOOK_SCENE.fragments[9] = COLLECTIONS_BOOK_SCENE.fragments[26]
+
+    ZO_ActiveCombatTipsTipIcon:SetDimensionConstraints(64, 64, 64, 64)
+
+    local B = BAG_GUILDBANK
+
+    local function RicingIsInventorySlotEmpty(slotIndex)
+        return GetItemId(BAG_GUILDBANK, slotIndex) == 0
+    end
+
+    local function getTotalPriceOfGuildBank()
+        local total_price = 0
+
+        local slotId = GetNextGuildBankSlotId(nil)
+        while slotId ~= nil do
+            if not RicingIsInventorySlotEmpty(slotId) then
+                local stack, maxStack = GetSlotStackSize(B, slotId)
+                d(string.format("%d: %d - %s (%d/%d)", slotId, GetItemId(B, slotId), GetItemName(B, slotId), stack, maxStack))
+
+                local price = TamrielTradeCentrePrice:GetPriceInfo(GetItemLink(B, slotId, LINK_STYLE_DEFAULT))
+                if price ~= nil then
+                    if price.SuggestedPrice ~= nil then
+                        total_price = total_price + stack * price.SuggestedPrice
+                    else
+                        total_price = total_price + stack * (price.SaleAvg or price.Min or 0)
+                    end
+                end
+            end
+
+            slotId = GetNextGuildBankSlotId(slotId)
+        end
+
+        d(total_price)
+    end
+
+    TryAutoTrackNextPromotionalEventCampaign = function() end
+
+    local function PrintAllSkillLines()
+        for skillType = 1, GetNumSkillTypes() do
+            for skillLineIndex = 1, GetNumSkillLines(skillType) do
+                local skillLineId = GetSkillLineId(skillType, skillLineIndex)
+                local name = GetSkillLineNameById(skillLineId)
+                if name then
+                    d(skillLineId .. ": " .. name)
+                end
+            end
+        end
+    end
+
+    EVENT_MANAGER:RegisterForEvent("Ricing".."FastTravelNodeHook", EVENT_PLAYER_ACTIVATED, function()
+        local originalGetFastTravelNodeInfo = GetFastTravelNodeInfo
+
+        GetFastTravelNodeInfo = function(id)
+            local known, name, normalisedX, normalisedY, icon, glowIcon, poiType, isShownInCurrentMap, linkedCollectibleIsLocked = originalGetFastTravelNodeInfo(id)
+            if known and name then
+                name = name .. " (" .. id .. ")"
+            end
+            return known, name, normalisedX, normalisedY, icon, glowIcon, poiType, isShownInCurrentMap, linkedCollectibleIsLocked
+        end
+        EVENT_MANAGER:UnregisterForEvent("Ricing".."FastTravelNodeHook", EVENT_PLAYER_ACTIVATED)
+    end)
+
+    function Ricing.UpdateCoordinates()
+        if not ZO_WorldMapContainer:IsHidden() then
+            local currentOffsetX = ZO_WorldMapContainer:GetLeft()
+            local currentOffsetY = ZO_WorldMapContainer:GetTop()
+            local parentOffsetX = ZO_WorldMap:GetLeft()
+            local parentOffsetY = ZO_WorldMap:GetTop()
+            local mouseX, mouseY = GetUIMousePosition()
+            local mapWidth, mapHeight = ZO_WorldMapContainer:GetDimensions()
+            local parentWidth, parentHeight = ZO_WorldMap:GetDimensions()
+
+            local normalizedX = math.floor((((mouseX - currentOffsetX) / mapWidth) * 10000) + 0.5)/10000
+            local normalizedY = math.floor((((mouseY - currentOffsetY) / mapHeight) * 10000) + 0.5)/10000
+            local xStr = string.format("%.04f", normalizedX)
+            local yStr = string.format("%.04f", normalizedY)
+
+            RicingCoordinates:SetAlpha(0.8)
+            RicingCoordinates:SetDrawLayer(ZO_WorldMap:GetDrawLayer() + 1)
+            RicingCoordinates:SetAnchor(TOPLEFT, nil, TOPLEFT, parentOffsetX + 0, parentOffsetY + parentHeight)
+            RicingCoordinatesValue:SetText("Coordinates: " .. tostring(xStr) .. ", " .. tostring(yStr))
+        else
+            RicingCoordinates:SetAlpha(0)
+        end
+    end
+
+    local function printFreeFurniture()
+        local furnitureList = SHARED_FURNITURE.marketProducts
+        for i, furniture in ipairs(furnitureList) do
+            if furniture.isFree then
+                d(furniture.rawName)
+            end
+        end
+    end
+
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
     SLASH_COMMANDS["/grouporder"] = PrintGroupOrder
     SLASH_COMMANDS["/timer"] = SetupTimestamp
     SLASH_COMMANDS["/home"] = TeleportToPrimary
     SLASH_COMMANDS["/time"] = PrintGlobalTime
     SLASH_COMMANDS["/latencyshare"] = PrintLatency
-    SLASH_COMMANDS["/lograiddata"] = toggleRaidEvents
-    SLASH_COMMANDS["/logcombatevents"] = logCombatEvents
+    -- SLASH_COMMANDS["/lograiddata"] = toggleRaidEvents
+    -- SLASH_COMMANDS["/logcombatevents"] = logCombatEvents
     SLASH_COMMANDS["/zonechanged"] = zoneChangedTestFunc
     SLASH_COMMANDS["/speedo"] = toggleSpeedometer
     SLASH_COMMANDS["/trialscore"] = replayTrialScore
+    SLASH_COMMANDS["/printallskilllines"] = PrintAllSkillLines
+    SLASH_COMMANDS["/freefurniture"] = printFreeFurniture
     if pChat then
         SLASH_COMMANDS["/clear"] = clearChat
     end
-    SLASH_COMMANDS["/advancedstats"] = printAdvancedStats
+    if TamrielTradeCentrePrice then
+        SLASH_COMMANDS["/printguildbank"] = getTotalPriceOfGuildBank
+    end
 
     timer_control:SetHidden(true)
     timer_control:SetScale(1.5)

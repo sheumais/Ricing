@@ -18,5 +18,18 @@
                 </Label>
             </Controls>
         </TopLevelControl>
+        <TopLevelControl name="RicingCoordinates">
+            <OnUpdate>
+                if Ricing and Ricing.UpdateCoordinates then
+                    Ricing.UpdateCoordinates()
+                end
+            </OnUpdate>
+
+            <Controls>
+                <Label name="$(parent)Value" font="ZoFontGameLargeBold" color="CFDCBD" wrapMode="ELLIPSIS" verticalAlignment="CENTER" text="">
+                    <AnchorFill />
+                </Label>
+            </Controls>
+        </TopLevelControl>
     </Controls>
 </GuiXml>
