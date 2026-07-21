@@ -371,7 +371,7 @@ local function OnAddOnLoaded(_, name)
 
     if pChat and pChat.FormatMessage and new_chat_handler and PVP_Alerts_Main_Table and savedVariables.pvpIcons then
         pChat.FormatMessage = new_chat_handler
-        CHAT_ROUTER:RegisterMessageFormatter(EVENT_CHAT_MESSAGE_CHANNEL, pChat.MessageChannelReceiver)
+        CHAT_ROUTER:RegisterMessageFormatter(EVENT_CHAT_MESSAGE_CHANNEL, pChat.FormatMessage)
     end
 
     local function handleRaidScoreChange(e, reason, amount, total)
@@ -786,22 +786,29 @@ local function OnAddOnLoaded(_, name)
     EVENT_MANAGER:AddFilterForEvent("RicingRepair", EVENT_COMBAT_EVENT, REGISTER_FILTER_ABILITY_ID, 209494)
     EVENT_MANAGER:AddFilterForEvent("RicingRepair", EVENT_COMBAT_EVENT, REGISTER_FILTER_COMBAT_RESULT, ACTION_RESULT_BEGIN)
 
+    ZO_CollectibleData_Base.IsHiddenFromCollection = function(...)
+        return false
+    end
+
     COLLECTIONS_BOOK_SCENE.fragments[9] = COLLECTIONS_BOOK_SCENE.fragments[26]
 
     ZO_ActiveCombatTipsTipIcon:SetDimensionConstraints(64, 64, 64, 64)
 
-    local B = BAG_GUILDBANK
+    local function RicingIsGuildBankInventorySlotEmpty(slotIndex)
+        return GetItemId(BAG_GUILDBANK, slotIndex) == 0
+    end
 
     local function RicingIsInventorySlotEmpty(slotIndex)
-        return GetItemId(BAG_GUILDBANK, slotIndex) == 0
+        return GetItemId(BAG_BACKPACK, slotIndex) == 0
     end
 
     local function getTotalPriceOfGuildBank()
         local total_price = 0
+        local B = BAG_GUILDBANK
 
         local slotId = GetNextGuildBankSlotId(nil)
         while slotId ~= nil do
-            if not RicingIsInventorySlotEmpty(slotId) then
+            if not RicingIsGuildBankInventorySlotEmpty(slotId) then
                 local stack, maxStack = GetSlotStackSize(B, slotId)
                 d(string.format("%d: %d - %s (%d/%d)", slotId, GetItemId(B, slotId), GetItemName(B, slotId), stack, maxStack))
 
@@ -881,6 +888,62 @@ local function OnAddOnLoaded(_, name)
         end
     end
 
+    local function printInventoryUniqueIds()
+        for i=0,GetBagSize(BAG_BACKPACK) do
+            if not RicingIsInventorySlotEmpty(i) then
+                if GetItemUniqueId(BAG_BACKPACK, i) then 
+                    d(i .. ": " .. GetItemName(BAG_BACKPACK, i) .. " - " .. Id64ToString(GetItemUniqueId(BAG_BACKPACK, i) or 0))
+                end
+            end
+        end
+    end
+
+    ZO_CollectibleData_Base.ShouldSuppressActiveState = function(...)
+        return false
+    end
+
+    ZO_CollectibleTile_Keyboard.CanPreview = function(...)
+        return true
+    end
+
+    ZO_CollectibleData_Base.IsBlocked = function(...)
+        return false
+    end
+
+    function ZO_CenterScreenAnnouncementCountdownLine:Reset()
+        ZO_CenterScreenAnnouncementLine.Reset(self)
+        self.endImageControl:SetTexture(nil)
+        self.endImageControl:SetHidden(true)
+        self.countdownControl:SetText("")
+        self.endImageTexture = nil
+        self.countdownLoopAnimationTimeline:Stop()
+        self.countdownEndImageAnimationTimeline:Stop()
+        self.countdownBufferAnimationTimeline:Stop()
+        self.textTickerGeneration = (self.textTickerGeneration or 0) + 1
+    end
+
+    function ZO_CenterScreenAnnouncementCountdownLine:PlayCountdownLoopAnimation()
+        SCREEN_NARRATION_MANAGER:QueueCountdownCSA(self.currentCountdownTimeS)
+        PlaySound(SOUNDS.COUNTDOWN_TICK)
+        self.countdownLoopAnimationTimeline:PlayFromStart()
+        self:StartTextTicker()
+    end
+
+    function ZO_CenterScreenAnnouncementCountdownLine:StartTextTicker()
+        self.textTickerGeneration = (self.textTickerGeneration or 0) + 1
+        self:UpdateCountdownText(self.textTickerGeneration)
+    end
+
+    function ZO_CenterScreenAnnouncementCountdownLine:UpdateCountdownText(generation)
+        if generation ~= self.textTickerGeneration then return end
+        local remainingMS = self.finalFrameTimeMS - GetFrameTimeMilliseconds()
+        local remainingS = zo_max(remainingMS / 1000, 0)
+        self.countdownControl:SetText(string.format("%.1f", remainingS))
+        if remainingMS > 10 then
+            zo_callLater(function() self:UpdateCountdownText(generation) end, 10)
+        end
+    end
+
     SLASH_COMMANDS["/showpos"] = TogglePositionVisiblity
     SLASH_COMMANDS["/grouporder"] = PrintGroupOrder
     SLASH_COMMANDS["/timer"] = SetupTimestamp
@@ -894,6 +957,7 @@ local function OnAddOnLoaded(_, name)
     SLASH_COMMANDS["/trialscore"] = replayTrialScore
     SLASH_COMMANDS["/printallskilllines"] = PrintAllSkillLines
     SLASH_COMMANDS["/freefurniture"] = printFreeFurniture
+    SLASH_COMMANDS["/inventoryids"] = printInventoryUniqueIds
     if pChat then
         SLASH_COMMANDS["/clear"] = clearChat
     end
